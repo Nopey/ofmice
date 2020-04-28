@@ -1,0 +1,17 @@
+[package]
+name = "ofmice"
+version = "0.1.0"
+authors = ["Magnus Larsen <golgothasTerror101@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+vgtk = "0.2.1"
+strum = "0.18.0"
+strum_macros = "0.18.0"
+pretty_env_logger = "0.4.0"
+steamworks = "0.6.1"
+pgp = "0.5.2"
+reqwest = "0.10.4"
+xz2 = "0.1.6"
+tar = "0.4.26"
+ddelta = "0.2.1"
