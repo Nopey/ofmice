@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use steamworks::{Client, AppId};
 
 /// A user-friendly **actionable** error
-/// TODO: Impl tostring for UI friendliness? Seems like a no
 #[derive(Debug, Clone, Copy)]
 pub enum WranglerError{
     SteamNotRunning,
@@ -41,3 +40,5 @@ pub fn wrangle_steam_and_get_ssdk_path() -> Result<PathBuf, WranglerError>{
     // Return the SSDK install path
     Ok(apps.app_install_dir(SSDK_APPID).into())
 }
+
+//TODO: Automatically installing TF2 and SSDK might be a good idea.

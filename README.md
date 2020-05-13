@@ -12,18 +12,20 @@ TODO: Other miscellanious dependencies
 ## Finished
 * Basic GTK skeleton
 * Pull SSDK path from steamworks and ensure TF2 is installed.
-* The most basic level of signature checking
-## TODO:
-* Download and parse index
+* Download index, clean install.
+## To-Do
 * Patch apply logic
-* Open Fortress Install Dir detection
 * Run Game
-* Double check the licenses of the crates and steamworks.
+* installation::InstalledBin - Integrity checksum
+
 * Integrate GTK with rest of logic in the Controller.
-* Add another binary for generating updates
-* Patch generation
-* Seperating Windows and Linux binaries into seperate patches
-* Logic for limiting patch number
-* Signing
-* Build for i686 rather than x64
+* Progress bar (module, with push/pop obj that gets passed around)
+* Date (last successful update or up-to-date, build date)
+
+* Index generation and patch trimming (bin)
+* Write bash script that generates patches and tarballs from svn
+    (basic patch logic already complete)
+
+* Double check the licenses of the crates and steamworks.
+* Double check builds are for i686 rather than x64
 * (Cross?) Build Windows binaries

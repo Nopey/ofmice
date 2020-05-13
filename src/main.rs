@@ -1,9 +1,10 @@
+//! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
 #![deny(clippy::all)]
 #![recursion_limit="1024"]
 mod steam_wrangler;
-mod security;
 mod platform;
-mod business; // okay this one should really have a better name
+mod download;
+mod installation;
 
 use vgtk::ext::*;
 use vgtk::lib::gio::ApplicationFlags;
@@ -65,14 +66,14 @@ impl Component for Model {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Wrangler: {:?}", steam_wrangler::wrangle_steam_and_get_ssdk_path());
 
-    println!("Security: {}", security::verify_signature(
-        include_bytes!("../index.txt"),
-        include_str!("../index.txt.asc")
-    ));
-
+    let old = installation::Installation::try_load().unwrap_or_default();
+    let mut new = old.clone();
+    download::download(&mut new).await;
+    new.save_changes().unwrap();
     pretty_env_logger::init();
     std::process::exit(run::<Model>());
 }
