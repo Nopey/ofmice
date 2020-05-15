@@ -3,8 +3,7 @@ use crate::platform::of_path;
 use crate::installation::*;
 
 use std::collections::HashMap;
-use std::io::copy;
-use std::fs::File;
+use std::ffi::OsStr;
 
 use reqwest::{Client, Certificate};
 use serde_derive::{Serialize, Deserialize};
@@ -29,34 +28,36 @@ struct Index{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Bindex {
     pub version: u64,
-    pub patch_tail: Vec<u8>, //TODO: Patch type.
-    /// A tar.xz that just contains the bin, with no funny business.
-    pub complete_download: String, // TODO: this can probably be deduced from the bindex's name.
+    //TODO: Patch newtype.
+    pub patch_tail: u64,
 }
 
 const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
 
+//TODO: Stream the download through xz and tar
 /// Downloads the latest update
 pub async fn download(installation: &mut Installation) -> Result<(), DownloadError> {
     use DownloadError::*;
-
-    //TODO: Check what's installed.
+    //TODO: replace some of these unwraps with BadResponse masks
+    //TODO: make a function that eprintln!'s the error before returning BadResponse.
+    // (maybe report the error, too)
 
     // Install our self signed certificate
+    // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
     let cert = Certificate::from_pem(include_bytes!("of.ssl.cert")).unwrap();
     let client = Client::builder()
         .add_root_certificate(cert).build().unwrap();
 
+    //TODO: Launcher self update detection
     // Download the index that describes what's available
     let index: Index = {
         let response = client.get(BASEURL).send().await;
-        response.map_err(|e| {eprintln!("Response err msg: {:?}", e); ConnectionFailure})?
-            .json().await.map_err(|_| BadResponse)?
+        response.map_err(|_| ConnectionFailure)?
+            .json().await.map_err(|e| {eprintln!("Response err msg: {:?}", e); BadResponse})?
     };
 
     // each bin is a set of files needed for the game.
     // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
-    //TODO: Maybe remove the bin function in favor of a std lib platform string
     let bins = platform::bins().iter();
 
     for &bin in bins {
@@ -69,26 +70,75 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
         if delta_dist==0 {
             // up-to-date
             println!("up-to-date");
-        }else if delta_dist <= bindex.patch_tail.len() as u64 /* && signatures match */{
-            // Patchable..?
+        }else if binst.version!=0 && delta_dist <= bindex.patch_tail /* && signatures match */{
             println!("patchable");
+
+            // mark uninstalled (if we're interrupted or fail, don't attempt to patch)
+            binst.version = 0;
+            drop(binst);
+            installation.save_changes().map_err(|_| WriteErr)?;
+
+            for patch_id in binst.version..bindex.version{
+                let url = format!("{}{}-patch{}.tar.xz", BASEURL, bin, patch_id);
+                let dottarxz = client.get(&url).send().await
+                    .map_err(|_| ConnectionFailure)?.bytes().await
+                    .map_err(|_| ConnectionFailure)?;
+                let dottar = read::XzDecoder::new(dottarxz.as_ref());
+                
+                let mut ar = Archive::new(dottar);
+                for file in ar.entries().unwrap() {
+                    let mut f = file.map_err(|_| BadResponse)?;
+                    let path = f.path().unwrap();
+                    match path.extension().and_then(OsStr::to_str) {
+                        Some("del") => std::fs::remove_file(
+                                of_path().join(path.parent().unwrap()).join(path.file_stem().unwrap())
+                            ).map_err(|_| WriteErr)?,
+                        Some("dif") => {// okay, stay calm. we know how to do this.
+                            // get real filename
+                            let real_filename = of_path()
+                                .join(path.parent().unwrap())
+                                .join(path.file_stem().unwrap());
+                            // the temporary version is named .dif
+                            let temp_filename = of_path().join(path);
+
+                            // apply the dif
+                            // chunked alleviates the 2.14GB restriction of ddelta
+                            let mut outfile = File::create( temp_filename ).map_err(|_| WriteErr)?;
+                            //NOTE: once we check checksums, realfile won't fail because of missing input.
+                            let mut realfile = File::open( real_filename ).map_err(|_| WriteErr)?;
+                            ddelta::apply_chunked(realfile, outfile, f);
+                            drop(realfile);
+                            drop(outfile);
+                            std::fs::rename(&temp_filename, &real_filename).map_err(|_| WriteErr)?;
+
+                            //TODO: Signature recording
+                        },
+                        _ => {
+                            let outpath = of_path().join(f.path().map_err(|_| BadResponse)?);
+                            std::fs::create_dir_all(outpath.parent().unwrap()).map_err(|_| BadResponse)?;
+                            f.unpack_in(of_path()).map_err(|_| WriteErr)?;
+
+                            //TODO: Signature recording
+                        }
+                    }
+                }
+            }
             todo!()
         }else{
             println!("full-download");
-            // Delete every previously installed file
-            binst.version = 0; // mark uninstalled
+            // mark uninstalled
+            binst.version = 0;
             drop(binst);
-            installation.save_changes()
-                .map_err(|_| WriteErr)?; // save uninstallation
+            installation.save_changes().map_err(|_| WriteErr)?;
+            
+            // Delete every previously installed file
             for file in &installation.bins[bin].files {
-                std::fs::remove_file(of_path().join(file))
-                    .map_err(|_| WriteErr)?;
+                // if it fails, we don't really care.
+                std::fs::remove_file(file).ok();
             }
 
             // Must download from scratch
-            let mut url = BASEURL.to_owned();
-            url.push_str(bin);
-            url.push_str(".tar.xz");
+            let url = format!("{}{}.tar.xz", BASEURL, bin);
             let dottarxz = client.get(&url).send().await
                 .map_err(|_| ConnectionFailure)?.bytes().await
                 .map_err(|_| ConnectionFailure)?;
@@ -97,12 +147,12 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
             let mut ar = Archive::new(dottar);
             for file in ar.entries().unwrap() {
                 let mut f = file.map_err(|_| BadResponse)?;
-                //TODO: Signature recording
                 let outpath = of_path().join(f.path().map_err(|_| BadResponse)?);
                 std::fs::create_dir_all(outpath.parent().unwrap()).map_err(|_| BadResponse)?;
                 f.unpack_in(of_path()).map_err(|_| WriteErr)?;
-                // let mut outfile = File::create( outpath ).map_err(|_| WriteErr)?;
-                // copy(&mut f, &mut outfile).unwrap();
+                installation.bins.get_mut(bin).unwrap().files.push(outpath);
+
+                //TODO: Signature recording
             }
             installation.bins.get_mut(bin).unwrap().version = bindex.version;
             installation.save_changes().map_err(|_| WriteErr)?;

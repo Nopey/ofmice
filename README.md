@@ -25,6 +25,9 @@ TODO: Other miscellanious dependencies
 * Index generation and patch trimming (bin)
 * Write bash script that generates patches and tarballs from svn
     (basic patch logic already complete)
+* Launcher self update detection
+* Launch options (default: -steam)
+* Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
 
 * Double check the licenses of the crates and steamworks.
 * Double check builds are for i686 rather than x64

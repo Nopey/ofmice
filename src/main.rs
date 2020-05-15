@@ -68,11 +68,9 @@ impl Component for Model {
 
 #[tokio::main]
 async fn main() {
-    println!("Wrangler: {:?}", steam_wrangler::wrangle_steam_and_get_ssdk_path());
-
     let old = installation::Installation::try_load().unwrap_or_default();
     let mut new = old.clone();
-    download::download(&mut new).await;
+    download::download(&mut new).await.unwrap();
     new.save_changes().unwrap();
     pretty_env_logger::init();
     std::process::exit(run::<Model>());

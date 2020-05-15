@@ -13,6 +13,8 @@ use serde_derive::{Serialize, Deserialize};
 pub struct Installation {
     //TODO: Privatize this, make some getters
     pub bins: HashMap<String, InstalledBin>,
+    //TODO: Launch options
+    //TODO: Cache TF2 and SSDK location
 }
 
 const TRACK_FILE: &'static str = "installation.json";
