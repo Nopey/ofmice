@@ -4,6 +4,7 @@ use crate::installation::*;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fs::File;
 
 use reqwest::{Client, Certificate};
 use serde_derive::{Serialize, Deserialize};
@@ -64,13 +65,14 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
         println!("[download] considering bin {}", bin);
         let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
         let mut binst = &mut installation.bins.entry(bin.to_owned()).or_insert_with(|| {println!("clearing a bin");InstalledBin::new()});
-        println!("installed ver:\t{}\nindex ver:\t{}", binst.version, bindex.version);
-        let delta_dist = bindex.version - binst.version;
+        let oldversion = binst.version;
+        println!("installed ver:\t{}\nindex ver:\t{}", oldversion, bindex.version);
+        let delta_dist = bindex.version - oldversion;
         //TODO: Signature checking
         if delta_dist==0 {
             // up-to-date
             println!("up-to-date");
-        }else if binst.version!=0 && delta_dist <= bindex.patch_tail /* && signatures match */{
+        }else if oldversion!=0 && delta_dist <= bindex.patch_tail /* && signatures match */{
             println!("patchable");
 
             // mark uninstalled (if we're interrupted or fail, don't attempt to patch)
@@ -78,7 +80,7 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
             drop(binst);
             installation.save_changes().map_err(|_| WriteErr)?;
 
-            for patch_id in binst.version..bindex.version{
+            for patch_id in oldversion..bindex.version{
                 let url = format!("{}{}-patch{}.tar.xz", BASEURL, bin, patch_id);
                 let dottarxz = client.get(&url).send().await
                     .map_err(|_| ConnectionFailure)?.bytes().await
@@ -103,10 +105,10 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
 
                             // apply the dif
                             // chunked alleviates the 2.14GB restriction of ddelta
-                            let mut outfile = File::create( temp_filename ).map_err(|_| WriteErr)?;
+                            let mut outfile = File::create( &temp_filename ).map_err(|_| WriteErr)?;
                             //NOTE: once we check checksums, realfile won't fail because of missing input.
-                            let mut realfile = File::open( real_filename ).map_err(|_| WriteErr)?;
-                            ddelta::apply_chunked(realfile, outfile, f);
+                            let mut realfile = File::open( &real_filename ).map_err(|_| WriteErr)?;
+                            ddelta::apply_chunked(&mut realfile, &mut outfile, &mut f);
                             drop(realfile);
                             drop(outfile);
                             std::fs::rename(&temp_filename, &real_filename).map_err(|_| WriteErr)?;

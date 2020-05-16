@@ -23,6 +23,7 @@ where
     if cfg!(linux){
         cmd.env("LD_LIBRARY_PATH", ssdk_path.join("bin"));
     }
+    //TODO: set args like -game
     cmd.spawn().unwrap();
 
     Ok(())
