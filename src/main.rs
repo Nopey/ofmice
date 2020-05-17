@@ -54,7 +54,7 @@ lazy_static!{
     static ref MODEL: Model = Model::new();
 }
 
-struct Model{
+struct Model {
     /// the entire installation struct is serialized to ~/.of/installation.json
     /// RWLocked so that the worker and main threads can share.
     pub installation: Arc<RwLock<Installation>>,
@@ -63,7 +63,7 @@ struct Model{
     // a stream for communicating with the worker thread
 }
 
-impl Model{
+impl Model {
     fn new() -> Self {
         Model{
             installation: Arc::new(RwLock::new(
@@ -101,11 +101,6 @@ fn build_ui(application: &gtk::Application) {
     let background: Image = builder.get_object("background").unwrap();
     background.set_from_pixbuf(Some(&load_bg()));
 
-    // Overlay the stack onto the background
-    let overlay: Overlay = builder.get_object("overlay").unwrap();
-    let stack: Stack = builder.get_object("stack").unwrap();
-    overlay.add_overlay(&stack);
-
     // Set the tab's icons
     let play_tabicon: Image = builder.get_object("play-tab").unwrap();
     play_tabicon.set_from_pixbuf(Some(&load_play_icon()));
@@ -116,12 +111,11 @@ fn build_ui(application: &gtk::Application) {
     let logo: Image = builder.get_object("logo").unwrap();
     logo.set_from_pixbuf(Some(&load_logo()));
 
-    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
-
     // Play button does things
+    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
+    let stack: Stack = builder.get_object("stack").unwrap();
     let play_button: Button = builder.get_object("play-button").unwrap();
     play_button.connect_clicked(move |_|{
-        MODEL.installation.read().unwrap().launch();
         stack.set_visible_child(&progress_screen)
     });
 

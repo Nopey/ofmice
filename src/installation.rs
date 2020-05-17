@@ -30,7 +30,7 @@ impl Installation {
     }
     /// Saves the installation to the file.
     /// Replaces it atomically with renaming.
-    pub fn save_changes( &self ) -> Result<(),&'static str>{
+    pub fn save_changes( &self ) -> Result<(),&'static str> {
         let temp_name = of_path().join(".").join(TRACK_FILE);
         let real_name = of_path()          .join(TRACK_FILE);
         std::fs::create_dir_all(of_path())
