@@ -7,14 +7,17 @@ mod installation;
 mod steam_wrangler;
 
 use crate::installation::Installation;
-
 use std::sync::{Arc, RwLock};
+use std::rc::Rc;
+use std::cell::Cell;
+use std::time::Duration;
+use std::thread;
 
 use gtk::prelude::*;
 use gio::prelude::*;
 use gdk_pixbuf::Pixbuf;
 use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
-use glib::Bytes;
+use glib::{Bytes, clone};
 use gtk::*;
 use lazy_static::lazy_static;
 
@@ -73,7 +76,7 @@ struct Model {
 impl Model {
     fn new() -> Self {
         let mut installation = Installation::try_load().unwrap_or_default();
-        installation.init_ssdk();
+        installation.init_ssdk().unwrap();
         Model{
             installation: Arc::new(RwLock::new(
                 installation
@@ -120,15 +123,75 @@ fn build_ui(application: &gtk::Application) {
     let logo: Image = builder.get_object("logo").unwrap();
     logo.set_from_pixbuf(Some(&load_logo()));
 
-    // Play button does things
-    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
-    let stack: Stack = builder.get_object("stack").unwrap();
-    let play_button: Button = builder.get_object("play-button").unwrap();
-    play_button.connect_clicked(move |_|{
-        stack.set_visible_child(&progress_screen)
-    });
+    connect_progress(&builder);
 
     window.show_all();
+}
+
+fn connect_progress(builder: &Builder){
+    // Play button does things
+    let play_button: Button = builder.get_object("play-button").unwrap();
+    
+    let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
+    let stack: Stack = builder.get_object("stack").unwrap();
+    let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
+    
+    let widgets = Rc::new((
+        stack,
+        home_screen,
+        progress_screen,
+        progress_bar,
+    ));
+
+    let active = Rc::new(Cell::new(false));
+    play_button.connect_clicked( move |_| {
+        if active.get() {
+            return;
+        }
+
+        active.set(true);
+
+        let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        thread::spawn(move || {
+            for v in 1..=25 {
+                let _ = tx.send(Some(v));
+                thread::sleep(Duration::from_millis(200));
+            }
+            let _ = tx.send(None);
+        });
+
+        widgets
+            .0
+            .set_visible_child(&widgets.2);
+
+        let active = active.clone();
+        let widgets = widgets.clone();
+        rx.attach(None, move |value| match value {
+            Some(value) => {
+                widgets
+                    .3
+                    .set_fraction(f64::from(value) / 25.0);
+
+                if value == 25 {
+                    let widgets = widgets.clone();
+                    gtk::timeout_add(1000, move || {
+                        widgets.3.set_fraction(0.0);
+                        widgets
+                            .0
+                            .set_visible_child(&widgets.1);
+                        glib::Continue(false)
+                    });
+                }
+
+                glib::Continue(true)
+            }
+            None => {
+                active.set(false);
+                glib::Continue(false)
+            }
+        });
+    });
 }
 
 
