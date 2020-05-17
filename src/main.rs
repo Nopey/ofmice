@@ -175,6 +175,7 @@ fn connect_progress(builder: &Builder){
 
                 if value == 25 {
                     let widgets = widgets.clone();
+                    MODEL.installation.read().unwrap().launch();
                     gtk::timeout_add(1000, move || {
                         widgets.3.set_fraction(0.0);
                         widgets

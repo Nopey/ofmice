@@ -72,12 +72,11 @@ impl Installation {
     pub fn launch(&self) {
         let mut cmd = Command::new(&self.ssdk_path.join(ssdk_exe()));
         cmd.current_dir(&self.ssdk_path);
-        if cfg!(linux){
+        if cfg!(target_os="linux"){
             cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
         }
         //TODO: set args like -game
         cmd.args(self.get_launch_args());
-        println!("{:?}", cmd);
         cmd.spawn().unwrap();
     }
 
