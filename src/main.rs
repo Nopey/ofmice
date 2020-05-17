@@ -10,6 +10,7 @@ use gio::prelude::*;
 use gdk_pixbuf::Pixbuf;
 use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::Bytes;
+use gtk::*;
 
 fn load_bg() -> Pixbuf {
     static BG: &[u8] = include_bytes!("res/bg.png");
@@ -44,8 +45,6 @@ fn load_glade() -> &'static str {
 }
 
 fn build_ui(application: &gtk::Application) {
-    use gtk::*;
-
     // Build our UI from ze XML
     let builder = Builder::new_from_string(load_glade());
 
@@ -63,6 +62,11 @@ fn build_ui(application: &gtk::Application) {
     // window needs application
     let window: ApplicationWindow = builder.get_object("window").unwrap();
     window.set_application(Some(application));
+
+    // transparent hooks
+    set_visual(&window, None);
+    window.connect_draw(draw);
+    window.connect_screen_changed(set_visual);
 
     // Set the background image
     let background: Image = builder.get_object("background").unwrap();
@@ -92,6 +96,23 @@ fn build_ui(application: &gtk::Application) {
     });
 
     window.show_all();
+}
+
+
+fn set_visual(window: &ApplicationWindow, _screen: Option<&gdk::Screen>) {
+    if let Some(screen) = window.get_screen() {
+        if let Some(ref visual) = screen.get_rgba_visual() {
+            window.set_visual(Some(visual)); // crucial for transparency
+        }
+    }
+}
+
+fn draw(_window: &ApplicationWindow, ctx: &cairo::Context) -> Inhibit {
+    // crucial for transparency
+    ctx.set_source_rgba(0.0, 0.0, 0.0, 0.0);
+    ctx.set_operator(cairo::Operator::Screen);
+    ctx.paint();
+    Inhibit(false)
 }
 
 #[tokio::main]

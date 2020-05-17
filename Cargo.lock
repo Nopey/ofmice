@@ -892,6 +892,7 @@ checksum = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
 name = "ofmice"
 version = "0.1.0"
 dependencies = [
+ "cairo-rs",
  "ddelta",
  "gdk",
  "gdk-pixbuf",
