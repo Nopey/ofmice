@@ -6,14 +6,11 @@ mod platform;
 mod download;
 mod installation;
 
-use vgtk::ext::*;
-use vgtk::lib::gio::ApplicationFlags;
-use vgtk::lib::gtk::*;
-use vgtk::lib::gdk_pixbuf::Pixbuf;
-use vgtk::lib::gio::{Cancellable, MemoryInputStream, Icon};
-use vgtk::lib::glib::Bytes;
-// use vgtk::lib::gtk::prelude::*;
-use vgtk::{gtk, run, Component, UpdateAction, VNode};
+use gtk::*;
+use gdk_pixbuf::Pixbuf;
+use gio::{ApplicationFlags, Cancellable, MemoryInputStream, Icon};
+use glib::Bytes;
+use gtk::prelude::*;
 
 #[derive(Clone, Debug, Default)]
 struct Model {}

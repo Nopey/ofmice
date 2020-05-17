@@ -9,11 +9,21 @@ default-run = "ofmice"
 name = "ofpatchtool"
 
 [dependencies]
-vgtk = "0.2.1"
+#UI
+gtk = "0.8.1"
+gdk-pixbuf = "0.8.0"
+gio = "0.8.1"
+glib = "0.9.3"
+
+# i can't remember
 strum = "0.18.0"
 strum_macros = "0.18.0"
-pretty_env_logger = "0.4.0"
+
+
+# for steam_wrangler. libsteam_api.so
 steamworks = "0.6.1"
+
+# download and installation use these
 reqwest = { version = "0.10.4", features = ["default-tls", "json", "stream"] }
 xz2 = "0.1.6"
 tar = "0.4.26"
@@ -21,4 +31,9 @@ ddelta = "0.2.1"
 serde_derive = "1.0.106"
 serde = "1.0.106"
 serde_json = "1.0.52"
+
+# async main
 tokio = { version = "0.2.20", features = ["rt-threaded", "macros"] }
+
+#unsorted
+pretty_env_logger = "0.4.0"
