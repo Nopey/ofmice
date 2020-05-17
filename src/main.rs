@@ -5,12 +5,17 @@ mod platform;
 mod download;
 mod installation;
 
+use crate::installation::Installation;
+
+use std::sync::{Arc, RwLock};
+
 use gtk::prelude::*;
 use gio::prelude::*;
 use gdk_pixbuf::Pixbuf;
 use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::Bytes;
 use gtk::*;
+use lazy_static::lazy_static;
 
 fn load_bg() -> Pixbuf {
     static BG: &[u8] = include_bytes!("res/bg.png");
@@ -42,6 +47,29 @@ fn load_css() -> &'static [u8] {
 
 fn load_glade() -> &'static str {
     include_str!("res/main.glade")
+}
+
+lazy_static!{
+    static ref MODEL: Model = Model::new();
+}
+
+struct Model{
+    /// the entire installation struct is serialized to ~/.of/installation.json
+    /// RWLocked so that the worker and main threads can share.
+    pub installation: Arc<RwLock<Installation>>,
+    // any other fields you add here won't be saved between runs of the launcher
+    // hold some news-related info here?
+    // a stream for communicating with the worker thread
+}
+
+impl Model{
+    fn new() -> Self {
+        Model{
+            installation: Arc::new(RwLock::new(
+                Installation::try_load().unwrap_or_default()
+            ))
+        }
+    }
 }
 
 fn build_ui(application: &gtk::Application) {
@@ -92,6 +120,7 @@ fn build_ui(application: &gtk::Application) {
     // Play button does things
     let play_button: Button = builder.get_object("play-button").unwrap();
     play_button.connect_clicked(move |_|{
+        MODEL.installation.read().unwrap().launch();
         stack.set_visible_child(&progress_screen)
     });
 
@@ -119,10 +148,10 @@ fn draw(_window: &ApplicationWindow, ctx: &cairo::Context) -> Inhibit {
 async fn main() {
     // pretty_env_logger::init();
 
-    let old = installation::Installation::try_load().unwrap_or_default();
+    /* let old = installation::Installation::try_load().unwrap_or_default();
     let mut new = old.clone();
     download::download(&mut new).await.unwrap();
-    new.save_changes().unwrap();
+    new.save_changes().unwrap();*/
 
 
     let uiapp = gtk::Application::new(Some("fun.openfortress.ofmice"),
