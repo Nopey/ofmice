@@ -2,11 +2,9 @@
 The Open Fortress launcher.
 
 ## Building
-To build, you will need to download the Steamworks SDK, and set
-the `STEAM_SDK_LOCATION` environmental variable to the
-installation directory of the SDK.
+there's a --feature steam_wrangler that requires the steam sdk to be installed and env var `STEAM_SDK_LOCATION` to be set to it.
 
-TODO: Other miscellanious dependencies
+TODO: Other miscellanious system dependencies
 (use ldd to find out what libs it uses)
 
 ## Finished
@@ -14,6 +12,7 @@ TODO: Other miscellanious dependencies
 * Pull SSDK path from steamworks and ensure TF2 is installed.
 * Download index, clean install, patch apply
 * run game
+* Launch options
 ## To-Do
 * installation::InstalledBin - Integrity checksum
 
@@ -25,7 +24,6 @@ TODO: Other miscellanious dependencies
 * Write bash script that generates patches and tarballs from svn
     (basic patch logic already complete)
 * Launcher self update detection
-* Launch options (default: -steam)
 * Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
 * investigate russian translation
 

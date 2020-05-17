@@ -126,7 +126,7 @@ fn build_ui(application: &gtk::Application) {
     // Save the config when the config tab is navigated away from
     let home_screen: Notebook = builder.get_object("home_screen").unwrap();
     home_screen.connect_switch_page(|homescreen, _page, _page_num| {
-        if homescreen.get_current_page()==Some(1){
+        if homescreen.get_current_page()==Some(1) {
             MODEL.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
         }
     });
