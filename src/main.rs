@@ -83,6 +83,14 @@ fn build_ui(application: &gtk::Application) {
     let logo: Image = builder.get_object("logo").unwrap();
     logo.set_from_pixbuf(Some(&load_logo()));
 
+    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
+
+    // Play button does things
+    let play_button: Button = builder.get_object("play-button").unwrap();
+    play_button.connect_clicked(move |_|{
+        stack.set_visible_child(&progress_screen)
+    });
+
     window.show_all();
 }
 
