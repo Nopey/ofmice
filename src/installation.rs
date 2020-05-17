@@ -1,11 +1,13 @@
 //! Handles extraction and tracking of bins.
 //! Perhaps it could handle more of the bin logic, relating to downloads?
 //! For now, it will just maintain a record of what's installed.
-use crate::platform::of_path;
+use crate::platform::{of_path, ssdk_exe};
 
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::ffi::OsString;
+use std::process::Command;
 
 use serde_derive::{Serialize, Deserialize};
 
@@ -13,8 +15,9 @@ use serde_derive::{Serialize, Deserialize};
 pub struct Installation {
     //TODO: Privatize this, make some getters
     pub bins: HashMap<String, InstalledBin>,
-    //TODO: Launch options
-    //TODO: Cache TF2 and SSDK location
+    pub launch_options: String,
+    pub ssdk_path: PathBuf,
+    pub tf2_path: PathBuf,
 }
 
 const TRACK_FILE: &'static str = "installation.json";
@@ -40,6 +43,64 @@ impl Installation {
         std::fs::rename(&temp_name, &real_name)
             .map_err(|_| "couldn't overwrite previous installation record")?;
         Ok(())
+    }
+    /// run game
+    /// very little checking, just goes for it
+    pub fn launch(&self) {
+        let mut cmd = Command::new(ssdk_exe());
+        cmd.current_dir(&self.ssdk_path);
+        if cfg!(linux){
+            cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
+        }
+        //TODO: set args like -game
+        cmd.args(self.get_launch_args());
+        cmd.spawn().unwrap();
+    }
+
+    fn get_launch_args(&self) -> Vec<OsString> {
+        let mut args = vec![];
+
+        args.push("-game".to_string().into());
+        args.push(of_path().join("open_fortress").into_os_string());
+
+        // I'm sure this is implemented somewhere, but I don't feel like finding it.
+        // passing it to `sh` would work, but isn't portable.
+        let mut arg = String::new();
+        let mut escaped = false;
+        let mut quote = ' ';// ' or " for yes
+        for c in self.launch_options.chars(){
+            if quote=='\'' {
+                if c=='\'' {
+                    quote = ' ';
+                }else{
+                    arg.push(c);
+                }
+            }else if escaped {
+                escaped = false;
+                arg.push(c);
+            }else if c=='\\' {
+                escaped = true;
+            }else if quote=='\"' {
+                if c=='\"'{
+                    quote = ' ';
+                }else{
+                    arg.push(c);
+                }
+            }else if c=='\"'{
+                quote = '\"';
+            }else if c.is_whitespace() {
+                if !arg.is_empty(){
+                    args.push(arg.to_string().into());
+                }
+                arg.clear();
+            }else{
+                arg.push(c);
+            }
+        }
+        if !arg.is_empty(){
+            args.push(arg.into());
+        }
+        args
     }
 }
 

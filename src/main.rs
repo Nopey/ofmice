@@ -10,7 +10,7 @@ use vgtk::ext::*;
 use vgtk::lib::gio::ApplicationFlags;
 use vgtk::lib::gtk::*;
 use vgtk::lib::gdk_pixbuf::Pixbuf;
-use vgtk::lib::gio::{Cancellable, MemoryInputStream};
+use vgtk::lib::gio::{Cancellable, MemoryInputStream, Icon};
 use vgtk::lib::glib::Bytes;
 // use vgtk::lib::gtk::prelude::*;
 use vgtk::{gtk, run, Component, UpdateAction, VNode};
@@ -20,7 +20,7 @@ struct Model {}
 
 #[derive(Clone, Debug)]
 enum Message {
-    // Noop,
+    Noop,
     Exit,
 }
 
@@ -52,11 +52,21 @@ impl Component for Model {
                     // That's my idea of a good hack.
                     <Grid>
                         <Stack>
-                            <Grid row_spacing=12 vexpand=true hexpand=true border_width=6>
+                            // <Label label="Hello!" valign=Align::Center halign=Align::Center />
+                            <Image
+                                /*pixbuf=Pixbuf::new_from_resource("document-save").ok()*/
+                                valign=Align::Center halign=Align::Center
+                                // this isn't working
+                                on configure_event=|i, _| {
+                                    i.set_from_gicon(&Icon::new_for_string("process-working").unwrap(), IconSize::LargeToolbar);
+                                    Message::Noop
+                                }
+                            />
+                            <Box orientation=Orientation::Vertical spacing=12 valign=Align::Center>
                                 /* Loading and Status */
-                                <ProgressBar text="Progress Bar" show_text=true hexpand=true Grid::top=0/>
-                                <Button label="Start" halign=Align::Center Grid::top=1/>
-                            </Grid>
+                                <ProgressBar text="Progress Bar" show_text=true hexpand=true/>
+                                <Button label="Start" halign=Align::Center />
+                            </Box>
                         </Stack>
                         <Image pixbuf=Some(load_bg()) />
                     </Grid>

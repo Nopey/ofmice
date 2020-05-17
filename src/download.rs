@@ -108,7 +108,8 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
                             let mut outfile = File::create( &temp_filename ).map_err(|_| WriteErr)?;
                             //NOTE: once we check checksums, realfile won't fail because of missing input.
                             let mut realfile = File::open( &real_filename ).map_err(|_| WriteErr)?;
-                            ddelta::apply_chunked(&mut realfile, &mut outfile, &mut f);
+                            ddelta::apply_chunked(&mut realfile, &mut outfile, &mut f)
+                                .map_err(|_| BadResponse)?;
                             drop(realfile);
                             drop(outfile);
                             std::fs::rename(&temp_filename, &real_filename).map_err(|_| WriteErr)?;

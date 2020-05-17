@@ -21,6 +21,7 @@ const SSDK_APPID: AppId = AppId(243750);
 /// Future work: Pass the TF2 path to OF?
 pub fn wrangle_steam_and_get_ssdk_path() -> Result<PathBuf, WranglerError>{
     // Init SteamWorks, and replace any error with a SteamNotRunning error.
+    
     let client = Client::init().map_err(|_| WranglerError::SteamNotRunning)?;
 
     // Note: Every steam user 'owns' these, as they're free.

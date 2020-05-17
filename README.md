@@ -12,10 +12,9 @@ TODO: Other miscellanious dependencies
 ## Finished
 * Basic GTK skeleton
 * Pull SSDK path from steamworks and ensure TF2 is installed.
-* Download index, clean install.
+* Download index, clean install, patch apply
+* run game
 ## To-Do
-* Patch apply logic
-* Run Game
 * installation::InstalledBin - Integrity checksum
 
 * Integrate GTK with rest of logic in the Controller.
@@ -28,6 +27,7 @@ TODO: Other miscellanious dependencies
 * Launcher self update detection
 * Launch options (default: -steam)
 * Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
+* investigate russian translation
 
 * Double check the licenses of the crates and steamworks.
 * Double check builds are for i686 rather than x64
