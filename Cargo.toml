@@ -34,6 +34,6 @@ serde_json = "1.0.52"
 
 # async main
 tokio = { version = "0.2.20", features = ["rt-threaded", "macros"] }
+gdk = "0.12.1"
 
 #unsorted
-pretty_env_logger = "0.4.0"

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkApplicationWindow" id="window">
+    <property name="title" translatable="yes">Open Fortress Launcher</property>
+    <property name="default_width">640</property>
+    <property name="default_height">360</property>
+    <property name="resizable">false</property>
+    <property name="app_paintable">true</property>
+    <child>
+      <object class="GtkOverlay" id="overlay">
+        <child>
+          <object class="GtkImage" id="background" />
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkStack" id="stack">
+    <property name="visible-child">home_screen</property>
+    <child>
+      <object class="GtkNotebook" id="home_screen">
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="vexpand">true</property>
+            <child>
+              <object class="GtkImage" id="logo">
+                <property name="valign">end</property>
+                <property name="vexpand">true</property>
+                <property name="margin-bottom">16</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="valign">start</property>
+                <property name="margin-bottom">64</property>
+                <property name="vexpand">true</property>
+                <property name="hexpand">true</property>
+                <property name="orientation">horizontal</property>
+                <child>
+                  <object class="GtkButton" id="play-button">
+                    <property name="name">play</property> <!-- used by css -->
+                    <property name="label" translatable="yes">Play</property>
+                    <property name="halign">center</property>
+                    <property name="hexpand">true</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="version">
+                <property name="label" translatable="yes">ofmice 0.1.0</property>
+                <property name="valign">end</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkImage" id="play-tab" />
+        </child>
+
+        <child>
+          <object class="GtkLabel" id="config-content">
+            <property name="label" translatable="yes">TODO: Config</property>
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkImage" id="config-tab" />
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox" id="progress_screen">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="valign">center</property>
+        <child>
+          <object class="GtkProgressBar" id="progress_bar">
+            <property name="show-text">true</property>
+            <property name="hexpand">true</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label" translatable="yes">Please wait..</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+<!--
+  <object class="GtkMessageDialog" id="messagedialog1">
+    <property name="can_focus">False</property>
+    <property name="type_hint">dialog</property>
+    <property name="transient_for">window</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="messagedialog-vbox1">
+        <property name="name">msgdialog</property>
+        <property name="width_request">300</property>
+        <property name="can_focus">False</property>
+        <property name="tooltip_markup" translatable="yes">Thank you for trying this example</property>
+        <property name="resize_mode">immediate</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="messagedialog-action_area1">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <placeholder/ >
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="pack_type">end</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label2">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">You have pressed the button</property>
+            <property name="ellipsize">end</property>
+            <property name="width_chars">40</property>
+            <property name="lines">1</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+-->
+</interface>
