@@ -22,7 +22,7 @@ pub fn ssdk_exe() -> &'static str {
 
 #[cfg(target_os = "linux")]
 pub fn of_path() -> PathBuf {
-    PathBuf::from(env::var("HOME").unwrap()).join(".local/share")
+    PathBuf::from(env::var("HOME").unwrap()).join(".local/share/of")
 }
 #[cfg(target_os = "windows")]
 pub fn of_path() -> PathBuf {

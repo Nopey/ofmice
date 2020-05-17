@@ -125,6 +125,7 @@ fn build_ui(application: &gtk::Application) {
     let stack: Stack = builder.get_object("stack").unwrap();
     let play_button: Button = builder.get_object("play-button").unwrap();
     play_button.connect_clicked(move |_|{
+        MODEL.installation.read().unwrap().launch();
         stack.set_visible_child(&progress_screen)
     });
 
