@@ -8,6 +8,9 @@ default-run = "ofmice"
 [[bin]]
 name = "ofpatchtool"
 
+[features]
+steam_wrangler = [ "steamworks" ]
+
 [dependencies]
 #UI
 gtk = "0.8.1"
@@ -21,7 +24,7 @@ strum_macros = "0.18.0"
 
 
 # for steam_wrangler. libsteam_api.so
-steamworks = "0.6.1"
+steamworks = { version = "0.6.1", optional = true }
 
 # download and installation use these
 reqwest = { version = "0.10.4", features = ["default-tls", "json", "stream"] }

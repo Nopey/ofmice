@@ -1,9 +1,10 @@
 //! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
 #![deny(clippy::all)]
-mod steam_wrangler;
 mod platform;
 mod download;
 mod installation;
+#[cfg(steam_wrangler)]
+mod steam_wrangler;
 
 use crate::installation::Installation;
 
