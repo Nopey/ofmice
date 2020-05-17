@@ -59,35 +59,65 @@
                 <child>
                   <object class="GtkGrid" id="config-content">
                     <property name="column-spacing">50</property>
+                    <property name="row-spacing">20</property>
+                    <property name="margin">20</property>
 
                     <child>
                       <!-- <property name="top-attach">0</property> -->
                       <object class="GtkLabel">
                           <property name="label" translatable="yes">SDK Path</property>
                       </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">0</property>
+                      </packing>
                     </child>
-
-
                     <child>
                       <object class="GtkEntry" id="ssdk_path">
                         <!-- <property name="height">10</property> -->
                         <property name="hexpand">true</property>
                       </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">0</property>
+                      </packing>
                     </child>
 
                     <child>
                       <object class="GtkLabel">
-                          <!-- <property name="top-attach">1</property> -->
+                          <property name="label" translatable="yes">Team Fortress 2 Path</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="tf_path">
+                        <property name="hexpand">true</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">1</property>
+                      </packing>
+                    </child>
+
+<!--
+                    <child>
+                      <object class="GtkLabel">
                           <property name="label" translatable="yes">Open Fortress Path</property>
                       </object>
                     </child>
-
                     <child>
                       <object class="GtkEntry" id="of_path">
-                        <!-- <property name="height">10</property> -->
                         <property name="hexpand">true</property>
                       </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">1</property>
+                      </packing>
                     </child>
+-->
                   </object>
                 </child>
                 <child type="tab">

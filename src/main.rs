@@ -111,7 +111,7 @@ fn build_ui(application: &gtk::Application) {
 
     // Set the background image
     let background: Image = builder.get_object("background").unwrap();
-    // background.set_from_pixbuf(Some(&load_bg()));
+    background.set_from_pixbuf(Some(&load_bg()));
 
     // Set the tab's icons
     let play_tabicon: Image = builder.get_object("play-tab").unwrap();
@@ -167,16 +167,14 @@ fn connect_progress(builder: &Builder){
             let _ = tx.send(None);
         });
 
-        widgets
-            .0
+        widgets.0
             .set_visible_child(&widgets.2);
 
         let active = active.clone();
         let widgets = widgets.clone();
         rx.attach(None, move |value| match value {
             Some(value) => {
-                widgets
-                    .3
+                widgets.3
                     .set_fraction(f64::from(value) / 25.0);
 
                 if value == 25 {
@@ -184,8 +182,7 @@ fn connect_progress(builder: &Builder){
                     MODEL.installation.read().unwrap().launch();
                     gtk::timeout_add(1000, move || {
                         widgets.3.set_fraction(0.0);
-                        widgets
-                            .0
+                        widgets.0
                             .set_visible_child(&widgets.1);
                         glib::Continue(false)
                     });

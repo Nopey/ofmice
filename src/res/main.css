@@ -1,3 +1,7 @@
+label {
+    color: #335;
+}
+
 notebook > * {
     background-color: transparent;
 }
@@ -5,6 +9,7 @@ notebook > * {
 notebook > header > tabs > * {
     background-color: rgba(169, 169, 169, 0.420);
 }
+
 button#play, button#play > * {
     background-color: #f06;
     padding: 8px 20px;
