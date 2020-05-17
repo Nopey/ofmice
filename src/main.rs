@@ -15,6 +15,9 @@ use vgtk::lib::glib::Bytes;
 // use vgtk::lib::gtk::prelude::*;
 use vgtk::{gtk, run, Component, UpdateAction, VNode};
 
+use crate::steam_wrangler::*;
+use crate::platform::*;
+
 #[derive(Clone, Debug, Default)]
 struct Model {}
 
@@ -22,12 +25,21 @@ struct Model {}
 enum Message {
     // Noop,
     Exit,
+    Start
 }
 
 fn load_bg() -> Pixbuf {
     static BG: &[u8] = include_bytes!("bg.png");
     let data_stream = MemoryInputStream::new_from_bytes(&Bytes::from_static(BG));
     Pixbuf::new_from_stream(&data_stream, None as Option<&Cancellable>).unwrap()
+}
+
+fn get_path() -> String {
+    let p = wrangle_steam_and_get_ssdk_path();
+    assert_eq!(p.is_ok(), true);
+
+
+    p.unwrap().into_os_string().into_string().unwrap()
 }
 
 impl Component for Model {
@@ -41,25 +53,35 @@ impl Component for Model {
                 vgtk::quit();
                 UpdateAction::None
             },
+
+            Message::Start => {
+                println!("Starting the game!");
+                run_ssdk_2013(std::env::args());
+                UpdateAction::None
+            },
         }
     }
 
     fn view(&self) -> VNode<Model> {
         gtk! {
             <Application::new_unwrap(Some("fun.openfortress.ofmice"), ApplicationFlags::empty())>
-                <Window app_paintable=true resizable=false on destroy=|_| Message::Exit>
+                <Window title="Open Fortress Launcher" app_paintable=true resizable=false on destroy=|_| Message::Exit>
                     // The Grid puts background behind the stack,
                     // That's my idea of a good hack.
-                    <Grid>
-                        <Stack>
-                            <Grid row_spacing=12 vexpand=true hexpand=true border_width=6>
+
+                    <Box orientation=Orientation::Vertical>
+                        <Label label=get_path()/>
+                        <Button label="Start" on clicked=|_| Message::Start/>
+                        <ProgressBar text="Progress Bar" show_text=true hexpand=true/>
+                    </Box>
+                    // <Grid>
+                        // <Stack>
+                            // <Grid row_spacing=12 vexpand=true hexpand=true border_width=6>
                                 /* Loading and Status */
-                                <ProgressBar text="Progress Bar" show_text=true hexpand=true Grid::top=0/>
-                                <Button label="Start" halign=Align::Center Grid::top=1/>
-                            </Grid>
-                        </Stack>
-                        <Image pixbuf=Some(load_bg()) />
-                    </Grid>
+                            // </Grid>
+                        // </Stack>
+                        // <Image pixbuf=Some(load_bg()) />
+                    // </Grid>
                 </Window>
             </Application>
         }

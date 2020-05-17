@@ -19,6 +19,7 @@ where
 {
     let ssdk_path = wrangle_steam_and_get_ssdk_path()?;
     let mut cmd = Command::new(ssdk_exe());
+
     cmd.current_dir(&ssdk_path);
     if cfg!(linux){
         cmd.env("LD_LIBRARY_PATH", ssdk_path.join("bin"));
