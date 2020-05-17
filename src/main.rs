@@ -148,10 +148,11 @@ fn draw(_window: &ApplicationWindow, ctx: &cairo::Context) -> Inhibit {
 async fn main() {
     // pretty_env_logger::init();
 
-    /* let old = installation::Installation::try_load().unwrap_or_default();
-    let mut new = old.clone();
-    download::download(&mut new).await.unwrap();
-    new.save_changes().unwrap();*/
+    let old = installation::Installation::try_load().unwrap_or_default();
+    // let mut new = old.clone();
+    // download::download(&mut new).await.unwrap();
+    println!("update available: {:?}", download::is_update_available(&old).await);
+    // new.save_changes().unwrap();
 
 
     let uiapp = gtk::Application::new(Some("fun.openfortress.ofmice"),

@@ -35,6 +35,47 @@ pub struct Bindex {
 
 const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
 
+pub async fn is_update_available(installation: &Installation) -> Result<bool, DownloadError> {
+    use DownloadError::*;
+    //TODO: replace some of these unwraps with BadResponse masks
+    //TODO: make a function that eprintln!'s the error before returning BadResponse.
+    // (maybe report the error, too)
+
+    // Install our self signed certificate
+    // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
+    let cert = Certificate::from_pem(include_bytes!("of.ssl.cert")).unwrap();
+    let client = Client::builder()
+        .add_root_certificate(cert).build().unwrap();
+
+    //TODO: Launcher self update detection
+    // Download the index that describes what's available
+    let index: Index = {
+        let response = client.get(BASEURL).send().await;
+        response.map_err(|_| ConnectionFailure)?
+            .json().await.map_err(|e| {eprintln!("Response err msg: {:?}", e); BadResponse})?
+    };
+
+    // each bin is a set of files needed for the game.
+    // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
+    let bins = platform::bins().iter();
+
+    for &bin in bins {
+        let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
+        let binst = match installation.bins.get(bin){
+            Some(b) => b,
+            None => {return Ok(true);} // update available
+        };
+        let oldversion = binst.version;
+        let delta_dist = bindex.version - oldversion;
+        //TODO: Signature checking
+        if delta_dist!=0 {
+            // up-to-date
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 //TODO: Stream the download through xz and tar
 /// Downloads the latest update
 pub async fn download(installation: &mut Installation) -> Result<(), DownloadError> {
