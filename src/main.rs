@@ -123,6 +123,14 @@ fn build_ui(application: &gtk::Application) {
     let logo: Image = builder.get_object("logo").unwrap();
     logo.set_from_pixbuf(Some(&load_logo()));
 
+    // Save the config when the config tab is navigated away from
+    let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+    home_screen.connect_switch_page(|homescreen, _page, _page_num| {
+        if homescreen.get_current_page()==Some(1){
+            MODEL.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+        }
+    });
+
     connect_progress(&builder);
 
     window.show_all();
