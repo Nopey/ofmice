@@ -3,7 +3,7 @@
 mod platform;
 mod download;
 mod installation;
-#[cfg(steam_wrangler)]
+#[cfg(feature = "steam_wrangler")]
 mod steam_wrangler;
 
 use crate::installation::Installation;
@@ -17,6 +17,13 @@ use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::Bytes;
 use gtk::*;
 use lazy_static::lazy_static;
+
+#[derive(Debug, Clone, Copy)]
+pub enum WranglerError{
+    SteamNotRunning,
+    SSDKNotInstalled,
+    TF2NotInstalled,
+}
 
 fn load_bg() -> Pixbuf {
     static BG: &[u8] = include_bytes!("res/bg.png");
@@ -65,9 +72,11 @@ struct Model{
 
 impl Model{
     fn new() -> Self {
+        let mut installation = Installation::try_load().unwrap_or_default();
+        installation.init_ssdk();
         Model{
             installation: Arc::new(RwLock::new(
-                Installation::try_load().unwrap_or_default()
+                installation
             ))
         }
     }

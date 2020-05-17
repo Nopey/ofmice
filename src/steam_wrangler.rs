@@ -2,15 +2,9 @@
 //! and ensures Team Fortress 2 is installed.
 use std::path::PathBuf;
 use steamworks::{Client, AppId};
+use crate::WranglerError;
 
 /// A user-friendly **actionable** error
-#[derive(Debug, Clone, Copy)]
-pub enum WranglerError{
-    SteamNotRunning,
-    SSDKNotInstalled,
-    TF2NotInstalled,
-}
-
 const TF2_APPID: AppId = AppId(440);
 #[allow(clippy::unreadable_literal)]
 const SSDK_APPID: AppId = AppId(243750);

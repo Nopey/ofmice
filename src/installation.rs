@@ -10,6 +10,8 @@ use std::ffi::OsString;
 use std::process::Command;
 
 use serde_derive::{Serialize, Deserialize};
+use crate::WranglerError;
+
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Installation {
@@ -27,6 +29,27 @@ impl Installation {
         let name = of_path().join(TRACK_FILE);
         let file = File::open(name).map_err(|_| ())?;
         serde_json::from_reader(file).map_err(|_| ())
+    }
+
+    #[cfg(feature = "steam_wrangler")]
+    pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
+        use crate::steam_wrangler::*;
+        let r = wrangle_steam_and_get_ssdk_path()?;
+        if self.ssdk_path.as_os_str().is_empty() {
+            self.ssdk_path = r;
+        }
+        Ok(())
+    }
+
+    #[cfg(not(feature = "steam_wrangler"))]
+    pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
+        println!("No steam wrangler");
+        Ok(())
+        // let r = wrangle_steam_and_get_ssdk_path()?;
+        // if self.ssdk_path.into_os_string().is_empty() {
+        //     self.ssdk_path = r;
+        // }
+        // Ok(())
     }
     /// Saves the installation to the file.
     /// Replaces it atomically with renaming.
@@ -47,13 +70,14 @@ impl Installation {
     /// run game
     /// very little checking, just goes for it
     pub fn launch(&self) {
-        let mut cmd = Command::new(ssdk_exe());
+        let mut cmd = Command::new(&self.ssdk_path.join(ssdk_exe()));
         cmd.current_dir(&self.ssdk_path);
         if cfg!(linux){
             cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
         }
         //TODO: set args like -game
         cmd.args(self.get_launch_args());
+        println!("{:?}", cmd);
         cmd.spawn().unwrap();
     }
 
