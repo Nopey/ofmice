@@ -44,3 +44,14 @@ pub fn all_valid_bins() -> &'static [&'static str] {
     //TODO: bin_xxx_xxx_dbg?
     return &["bin_linux_client", "bin_linux_server", "bin_windows_client", "bin_windows_server", "content_client", "content_server"];
 }
+
+
+#[cfg(target_os = "linux")]
+pub fn ofmice_binary_name() -> &'static str {
+    "ofmice"
+}
+
+#[cfg(target_os = "windows")]
+pub fn ofmice_binary_name() -> &'static str {
+    "ofmice.exe"
+}

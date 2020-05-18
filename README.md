@@ -13,23 +13,25 @@ TODO: Other miscellanious system dependencies
 * Download index, clean install, patch apply
 * run game
 * Launch options
+* Progress bar (module, with push/pop obj that gets passed around)
 
 ## To-Do
+### Backend things
 * installation::InstalledBin - Integrity checksum
-
-* Integrate GTK with rest of logic in the Controller.
-* Progress bar (module, with push/pop obj that gets passed around)
 * Date (last successful update or up-to-date, build date)
-
 * Index generation and patch trimming (bin)
 * Write bash script that generates patches and tarballs from svn
     (basic patch logic already complete)
-* Launcher self update detection
 * Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
-* investigate russian translation
-* disable launch button if it outlook is bad
-* update button
 
+### UI things
+* disable launch button if it outlook is bad
+* investigate russian translation
+* make button look like update button when updates needed
+
+
+### distribution things
+* Launcher self update detection
 * Double check the licenses of the crates and steamworks.
 * Double check builds are for i686 rather than x64
 * (Cross?) Build Windows binaries

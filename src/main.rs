@@ -204,26 +204,16 @@ fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
             let progress = Progress::new(tx);
             tokio::spawn((move || async move{
                 let mut inst = model.installation.load().deref().deref().clone();
-                //TODO: handle DownloadError
+
                 download(&mut inst, progress).await.map_err(|e| err_tx.send(e).ok()).ok();
                 model.installation.store(Arc::new(inst));
             })());
-            
-            /*for (i, progress) in progress.divide(4, "Download").enumerate() {
-                for v in 0..100 {
-                    let _ = progress.send(v as f64/100f64, &format!("File {} of 4: {}%", i+1, v));
-                    thread::sleep(Duration::from_millis(10));
-                }
-            }
-            progress.finish();*/
-            
-            // });
         }
 
         
         let ed = ed.clone();
         err_rx.attach(None, move |_value: download::DownloadError| {
-            ed.display_error("TODO: actually handle errors properly");
+            ed.display_error("TODO: actually handle DownloadErrors properly");
             Continue(false)
         });
 

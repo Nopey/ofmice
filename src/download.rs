@@ -22,8 +22,21 @@ pub enum DownloadError{
 
 /// a list of patches and other downloads
 #[derive(Debug, Deserialize)]
-struct Index{
+struct Index {
     bindices: HashMap<String, Bindex>,
+}
+
+impl Index {
+    async fn get(client: &Client) -> Result<Self, DownloadError> {
+        let response = client.get(BASEURL).send().await;
+        response.map_err(|_| DownloadError::ConnectionFailure)?
+            .json().await.map_err(bad_response)
+    }
+}
+
+fn bad_response<E: std::fmt::Debug + Sized>(e: E) -> DownloadError {
+    eprintln!("BadResponse: {:?}", e);
+    DownloadError::BadResponse
 }
 
 /// The name is a pun of Bin and index.
@@ -34,27 +47,39 @@ pub struct Bindex {
     pub patch_tail: u32,
 }
 
-const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
-
-pub async fn is_update_available(installation: &Installation) -> Result<bool, DownloadError> {
-    use DownloadError::*;
-    //TODO: replace some of these unwraps with BadResponse masks
-    //TODO: make a function that eprintln!'s the error before returning BadResponse.
-    // (maybe report the error, too)
-
+fn make_client() -> Client{
     // Install our self signed certificate
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
     let cert = Certificate::from_pem(include_bytes!("of.ssl.cert")).unwrap();
     let client = Client::builder()
         .add_root_certificate(cert).build().unwrap();
+    client
+}
+
+const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
+
+pub async fn self_update() -> Result<(), DownloadError> {
+    let client = make_client();
+    let new_version = client.get(&format!("{}{}", BASEURL, platform::ofmice_binary())).send().await;
+        response.map_err(|_| DownloadError::ConnectionFailure)?
+            .text().await?.map_err(bad_response);
+    if new_version!=env!("CARGO_PKG_VERSION"){
+        // ooga booga we updating boys
+        todo!()
+    }
+    Ok(())
+}
+
+pub async fn is_update_available(installation: &Installation) -> Result<bool, DownloadError> {
+    //TODO: replace some of these unwraps with BadResponse masks
+    //TODO: make a function that eprintln!'s the error before returning BadResponse.
+    // (maybe report the error, too)
+
+    let client = make_client();
 
     //TODO: Launcher self update detection
     // Download the index that describes what's available
-    let index: Index = {
-        let response = client.get(BASEURL).send().await;
-        response.map_err(|_| ConnectionFailure)?
-            .json().await.map_err(|e| {eprintln!("Response err msg: {:?}", e); BadResponse})?
-    };
+    let index = Index::get(&client).await?;
 
     // each bin is a set of files needed for the game.
     // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
@@ -86,19 +111,11 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
     // (maybe report the error, too)
     progress.send(0f64, "Downloading index");
 
-    // Install our self signed certificate
-    // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
-    let cert = Certificate::from_pem(include_bytes!("of.ssl.cert")).unwrap();
-    let client = Client::builder()
-        .add_root_certificate(cert).build().unwrap();
+    let client = make_client();
 
     //TODO: Launcher self update detection
     // Download the index that describes what's available
-    let index: Index = {
-        let response = client.get(BASEURL).send().await;
-        response.map_err(|_| ConnectionFailure)?
-            .json().await.map_err(|e| {eprintln!("Response err msg: {:?}", e); BadResponse})?
-    };
+    let index = Index::get(&client).await?;
 
     // each bin is a set of files needed for the game.
     // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
