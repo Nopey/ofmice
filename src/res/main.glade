@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <object class="GtkApplicationWindow" id="window">
+  <object class="GtkWindow" id="window">
     <property name="title" translatable="yes">Open Fortress Launcher</property>
     <property name="default_width">640</property>
     <property name="default_height">360</property>

@@ -1,8 +1,8 @@
 //! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
 #![deny(clippy::all)]
-mod platform;
+pub mod platform;
 mod download;
-mod installation;
+pub mod installation;
 #[cfg(feature = "steam_wrangler")]
 mod steam_wrangler;
 
@@ -20,10 +20,34 @@ use gdk_pixbuf::Pixbuf;
 use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::{Bytes, clone};
 use gtk::*;
-use lazy_static::lazy_static;
 
 use crate::platform::ssdk_exe;
 
+#[derive(Clone)]
+struct ErrorDisplayer{
+  pub window: Window,
+}
+impl ErrorDisplayer{
+    fn display_error<S: AsRef<str>>(&self, text: S) {
+        let md = MessageDialog::new(
+            Some(&self.window),
+            DialogFlags::MODAL|DialogFlags::DESTROY_WITH_PARENT,
+            MessageType::Error, // TODO: maybe use Warning for some errors
+            ButtonsType::Ok,
+            text.as_ref()
+        );
+        md.run();
+        md.destroy();
+    }
+
+    fn display_wrangler_err(&self, e: WranglerError){
+        self.display_error( match e {
+                    WranglerError::SteamNotRunning => "Steam is not running, unable to set Source SDK 2013 or Team Fortress 2 paths",
+                    WranglerError::TF2NotInstalled => "Team Fortress 2 is not installed",
+                    WranglerError::SSDKNotInstalled => "Source SDK Base 2013 Multiplayer is not installed",
+                })
+    }
+}
 #[derive(Debug, Clone, Copy)]
 pub enum WranglerError{
     SteamNotRunning,
@@ -74,8 +98,7 @@ struct Model {
 
 impl Model {
     fn new() -> Self {
-        let mut installation = Installation::try_load().unwrap_or_default();
-        installation.init_ssdk().unwrap();
+        let installation = Installation::try_load().unwrap_or_default();
         Model{
             installation: Arc::new(RwLock::new(
                 installation
@@ -101,10 +124,10 @@ fn build_ui(application: &gtk::Application) {
 
     // Errorbox setup goes here
 
-    let model = Rc::New(Model::new());
+    let model = Rc::new(Model::new());
 
     // window needs application
-    let window: ApplicationWindow = builder.get_object("window").unwrap();
+    let window: Window = builder.get_object("window").unwrap();
     window.set_application(Some(application));
 
     // transparent hooks
@@ -128,31 +151,41 @@ fn build_ui(application: &gtk::Application) {
 
     // Save the config when the config tab is navigated away from
     let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-    home_screen.connect_switch_page(clone!( @weak model => |homescreen, _page, _page_num| {
-        if homescreen.get_current_page()==Some(1) {
-            model.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
-        }
-    }));
+    {
+        let model = model.clone();
+        home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
+            if home_screen.get_current_page()==Some(1) {
+                model.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+            }
+        });
+    }
 
     let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
-    ssdk_path.connect_focus_out_event(clone!(@weak model => move |_widget, _event| {
-        let inst = &mut model.installation.write().unwrap();
-        let t = _widget.get_text().unwrap();
-        let p = Path::new(t.as_str());
+    {
+        let model = model.clone();
+        ssdk_path.connect_focus_out_event(move |_widget, _event| {
+            let inst = &mut model.installation.write().unwrap();
+            let t = _widget.get_text().unwrap();
+            let p = Path::new(t.as_str());
 
-        if p.join(ssdk_exe()).exists() {
-            _widget.set_widget_name("valid-path");
-            inst.ssdk_path = p.to_path_buf();
-        } else {
-            _widget.set_widget_name("invalid-path");
-        }
-        // println!("Out of focus");
-        Inhibit(false)
-    }));
+            if p.join(ssdk_exe()).exists() {
+                _widget.set_widget_name("valid-path");
+                inst.ssdk_path = p.to_path_buf();
+            } else {
+                _widget.set_widget_name("invalid-path");
+            }
+            // println!("Out of focus");
+            Inhibit(false)
+        });
+    }
 
-    connect_progress(&builder, model);
+    connect_progress(&builder, &model);
 
     window.show_all();
+
+    let ed = ErrorDisplayer {window};
+
+    model.installation.write().unwrap().init_ssdk().unwrap_or_else(|e| ed.display_wrangler_err(e));
 }
 
 fn connect_progress(builder: &Builder, model: &Rc<Model>){
@@ -193,7 +226,8 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
 
         let active = active.clone();
         let widgets = widgets.clone();
-        rx.attach(None, clone!(@weak model => move |value| match value {
+        let model = model.clone();
+        rx.attach(None, move |value| match value {
             Some(value) => {
                 widgets.3
                     .set_fraction(f64::from(value) / 25.0);
@@ -215,12 +249,12 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
                 active.set(false);
                 glib::Continue(false)
             }
-        }));
+        });
     }));
 }
 
 
-fn set_visual(window: &ApplicationWindow, _screen: Option<&gdk::Screen>) {
+fn set_visual(window: &Window, _screen: Option<&gdk::Screen>) {
     if let Some(screen) = window.get_screen() {
         if let Some(ref visual) = screen.get_rgba_visual() {
             window.set_visual(Some(visual)); // crucial for transparency
@@ -228,7 +262,7 @@ fn set_visual(window: &ApplicationWindow, _screen: Option<&gdk::Screen>) {
     }
 }
 
-fn draw(_window: &ApplicationWindow, ctx: &cairo::Context) -> Inhibit {
+fn draw(_window: &Window, ctx: &cairo::Context) -> Inhibit {
     // crucial for transparency
     ctx.set_source_rgba(0.0, 0.0, 0.0, 0.0);
     ctx.set_operator(cairo::Operator::Screen);
@@ -245,7 +279,6 @@ async fn main() {
     // download::download(&mut new).await.unwrap();
     println!("update available: {:?}", download::is_update_available(&old).await);
     // new.save_changes().unwrap();
-
 
     let uiapp = gtk::Application::new(Some("fun.openfortress.ofmice"),
                     ApplicationFlags::FLAGS_NONE)
