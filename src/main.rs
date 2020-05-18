@@ -12,6 +12,7 @@ use std::rc::Rc;
 use std::cell::Cell;
 use std::time::Duration;
 use std::thread;
+use std::path::Path;
 
 use gtk::prelude::*;
 use gio::prelude::*;
@@ -20,6 +21,8 @@ use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::{Bytes, clone};
 use gtk::*;
 use lazy_static::lazy_static;
+
+use crate::platform::ssdk_exe;
 
 #[derive(Debug, Clone, Copy)]
 pub enum WranglerError{
@@ -111,7 +114,7 @@ fn build_ui(application: &gtk::Application) {
 
     // Set the background image
     let background: Image = builder.get_object("background").unwrap();
-    background.set_from_pixbuf(Some(&load_bg()));
+    // background.set_from_pixbuf(Some(&load_bg()));
 
     // Set the tab's icons
     let play_tabicon: Image = builder.get_object("play-tab").unwrap();
@@ -131,6 +134,23 @@ fn build_ui(application: &gtk::Application) {
         }
     });
 
+
+    let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
+    ssdk_path.connect_focus_out_event(move |_widget, _event| {
+        let mut inst = &mut MODEL.installation.write().unwrap();
+        let t = _widget.get_text().unwrap();
+        let p = Path::new(t.as_str());
+
+        if p.join(ssdk_exe()).exists() {
+            _widget.set_widget_name("valid-path");
+            inst.ssdk_path = p.to_path_buf();
+        } else {
+            _widget.set_widget_name("invalid-path");
+        }
+        // println!("Out of focus");
+        Inhibit(false)
+    });
+
     connect_progress(&builder);
 
     window.show_all();
@@ -144,12 +164,6 @@ fn connect_progress(builder: &Builder){
     let progress_screen: Box = builder.get_object("progress_screen").unwrap();
     let stack: Stack = builder.get_object("stack").unwrap();
     let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
-    let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
-
-    ssdk_path.connect_focus_out_event(move |_widget, _event| {
-        println!("Out of focus");
-        Inhibit(true)
-    });
     
     let widgets = Rc::new((
         stack,

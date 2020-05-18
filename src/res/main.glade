@@ -102,6 +102,25 @@
                       </packing>
                     </child>
 
+                    <child>
+                      <object class="GtkLabel">
+                          <property name="label" translatable="yes">Launch options</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">0</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="launch_opts">
+                        <property name="hexpand">true</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="top_attach">2</property>
+                      </packing>
+                    </child>
+
 <!--
                     <child>
                       <object class="GtkLabel">
