@@ -8,6 +8,7 @@
     <property name="app_paintable">true</property>
     <child>
       <object class="GtkOverlay" id="overlay">
+        <property name="name">bg-overlay</property> <!-- used by css -->
         <child>
           <object class="GtkImage" id="background" />
         </child>
