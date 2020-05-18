@@ -16,6 +16,7 @@ use std::path::Path;
 
 use gtk::prelude::*;
 use gio::prelude::*;
+use gtk::{ButtonsType, DialogFlags, MessageType, MessageDialog, Window};
 use gdk_pixbuf::Pixbuf;
 use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
 use glib::{Bytes, clone};
@@ -23,6 +24,26 @@ use gtk::*;
 use lazy_static::lazy_static;
 
 use crate::platform::ssdk_exe;
+
+#[derive(Clone)]
+struct ErrorDisplayer{
+  pub msgbox: MessageDialog,
+  pub label: Label,
+}
+impl ErrorDisplayer{
+    fn display_error<S: AsRef<str>>(&self, text: S) {
+        self.label.set_text(text.as_ref());
+        self.msgbox.run();
+    }
+
+    fn display_wrangler_err(&self, e: WranglerError){
+        self.display_error( match e {
+                    WranglerError::SteamNotRunning => "Steam is not running, unable to set Source SDK 2013 or Team Fortress 2 paths",
+                    WranglerError::TF2NotInstalled => "Team Fortress 2 is not installed",
+                    WranglerError::SSDKNotInstalled => "Source SDK Base 2013 Multiplayer is not installed",
+                })
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum WranglerError{
@@ -79,7 +100,6 @@ struct Model {
 impl Model {
     fn new() -> Self {
         let mut installation = Installation::try_load().unwrap_or_default();
-        installation.init_ssdk().unwrap();
         Model{
             installation: Arc::new(RwLock::new(
                 installation
@@ -151,9 +171,35 @@ fn build_ui(application: &gtk::Application) {
         Inhibit(false)
     });
 
+
     connect_progress(&builder);
 
     window.show_all();
+
+    let errorbox: MessageDialog = builder.get_object("errorbox").unwrap();
+    let errormsg: Label = builder.get_object("errormsg").unwrap();
+    let errorconfirm: Button = builder.get_object("errorconfirm").unwrap();
+    let ed = ErrorDisplayer {msgbox: errorbox, label: errormsg};
+    let r = MODEL.installation.write().unwrap().init_ssdk();
+
+    errorconfirm.connect_activate(move |_| {
+        errorbox.hide();
+    });
+
+    match r{
+        Err(e) => ed.display_wrangler_err(e),
+        _ => (), // no error
+    };
+
+    // match r{
+    //     Err(e) => println!("{}", match e {
+    //             WranglerError::SteamNotRunning => "Steam is not running, unable to set Source SDK 2013 or Team Fortress 2 paths",
+    //             WranglerError::TF2NotInstalled => "Team Fortress 2 is not installed",
+    //             WranglerError::SSDKNotInstalled => "Source SDK Base 2013 Multiplayer is not installed",
+    //         }),
+    //     _ => (), // no error
+    // };
+
 }
 
 fn connect_progress(builder: &Builder){
@@ -246,7 +292,6 @@ async fn main() {
     // download::download(&mut new).await.unwrap();
     println!("update available: {:?}", download::is_update_available(&old).await);
     // new.save_changes().unwrap();
-
 
     let uiapp = gtk::Application::new(Some("fun.openfortress.ofmice"),
                     ApplicationFlags::FLAGS_NONE)

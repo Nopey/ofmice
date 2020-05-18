@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
+  <object class="GtkMessageDialog" id="errorbox">
+    <child>
+      <object class="GtkLabel" id="errormsg">
+        <property name="label" translatable="yes">Hello World</property>
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkButton" id="errorconfirm">
+        <property name="label" translatable="yes">OK</property>
+        <property name="halign">center</property>
+        <property name="hexpand">true</property>
+      </object>
+    </child>
+  </object>
+
+
   <object class="GtkApplicationWindow" id="window">
     <property name="title" translatable="yes">Open Fortress Launcher</property>
     <property name="default_width">640</property>
