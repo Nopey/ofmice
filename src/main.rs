@@ -1,12 +1,10 @@
 //! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
-#![deny(clippy::all)]
-pub mod platform;
-mod download;
-pub mod installation;
-#[cfg(feature = "steam_wrangler")]
-mod steam_wrangler;
+mod res;
 
-use crate::installation::Installation;
+use ofmice::*;
+use res::*;
+
+use installation::Installation;
 use std::sync::{Arc, RwLock};
 use std::rc::Rc;
 use std::cell::Cell;
@@ -16,9 +14,8 @@ use std::path::Path;
 
 use gtk::prelude::*;
 use gio::prelude::*;
-use gdk_pixbuf::Pixbuf;
-use gio::{ApplicationFlags, Cancellable, MemoryInputStream};
-use glib::{Bytes, clone};
+use gio::ApplicationFlags;
+use glib::clone;
 use gtk::*;
 
 use crate::platform::ssdk_exe;
@@ -48,44 +45,6 @@ impl ErrorDisplayer{
                 })
     }
 }
-#[derive(Debug, Clone, Copy)]
-pub enum WranglerError{
-    SteamNotRunning,
-    SSDKNotInstalled,
-    TF2NotInstalled,
-}
-
-fn load_bg() -> Pixbuf {
-    static BG: &[u8] = include_bytes!("res/bg.png");
-    let data_stream = MemoryInputStream::new_from_bytes(&Bytes::from_static(BG));
-    Pixbuf::new_from_stream(&data_stream, None as Option<&Cancellable>).unwrap()
-}
-
-fn load_logo() -> Pixbuf {
-    static DATA: &[u8] = include_bytes!("res/logo.svg");
-    let data_stream = MemoryInputStream::new_from_bytes(&Bytes::from_static(DATA));
-    Pixbuf::new_from_stream(&data_stream, None as Option<&Cancellable>).unwrap()
-}
-
-fn load_play_icon() -> Pixbuf {
-    static ICON: &[u8] = include_bytes!("res/play.png");
-    let data_stream = MemoryInputStream::new_from_bytes(&Bytes::from_static(ICON));
-    Pixbuf::new_from_stream(&data_stream, None as Option<&Cancellable>).unwrap()
-}
-
-fn load_config_icon() -> Pixbuf {
-    static ICON: &[u8] = include_bytes!("res/config.png");
-    let data_stream = MemoryInputStream::new_from_bytes(&Bytes::from_static(ICON));
-    Pixbuf::new_from_stream(&data_stream, None as Option<&Cancellable>).unwrap()
-}
-
-fn load_css() -> &'static [u8] {
-    include_bytes!("res/main.css")
-}
-
-fn load_glade() -> &'static str {
-    include_str!("res/main.glade")
-}
 
 struct Model {
     /// the entire installation struct is serialized to ~/.of/installation.json
@@ -109,12 +68,12 @@ impl Model {
 
 fn build_ui(application: &gtk::Application) {
     // Build our UI from ze XML
-    let builder = Builder::new_from_string(load_glade());
+    let builder = Builder::new_from_string(load_glade().as_ref());
 
     // Apply the CSS to ze XML
     let provider = CssProvider::new();
     provider
-        .load_from_data(load_css())
+        .load_from_data(load_css().as_ref())
         .expect("Failed to load CSS");
     StyleContext::add_provider_for_screen(
         &gdk::Screen::get_default().expect("Error initializing gtk css provider."),
@@ -148,6 +107,10 @@ fn build_ui(application: &gtk::Application) {
     // Set the main logo
     let logo: Image = builder.get_object("logo").unwrap();
     logo.set_from_pixbuf(Some(&load_logo()));
+
+    // Set the version
+    let version: Label = builder.get_object("version").unwrap();
+    version.set_label(env!("CARGO_PKG_VERSION"));
 
     // Save the config when the config tab is navigated away from
     let home_screen: Notebook = builder.get_object("home_screen").unwrap();

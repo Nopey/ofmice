@@ -5,8 +5,12 @@ authors = ["Magnus Larsen <golgothasTerror101@gmail.com>"]
 edition = "2018"
 default-run = "ofmice"
 
+[lib]
+name = "ofmice"
 [[bin]]
 name = "ofpatchtool"
+[[bin]]
+name = "ofmice"
 
 [features]
 steam_wrangler = [ "steamworks" ]

@@ -46,7 +46,7 @@
                     </child>
                     <child>
                       <object class="GtkLabel" id="version">
-                        <property name="label" translatable="yes">ofmice 0.1.0</property>
+                        <property name="label" translatable="no"></property>
                         <property name="valign">end</property>
                       </object>
                     </child>
@@ -65,7 +65,7 @@
                     <child>
                       <!-- <property name="top-attach">0</property> -->
                       <object class="GtkLabel">
-                          <property name="label" translatable="yes">SDK Path</property>
+                          <property name="label" translatable="yes">Source SDK Path</property>
                       </object>
                       <packing>
                         <property name="left_attach">0</property>
