@@ -26,6 +26,8 @@ TODO: Other miscellanious system dependencies
 * Launcher self update detection
 * Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
 * investigate russian translation
+* disable launch button if it outlook is bad
+* update button
 
 * Double check the licenses of the crates and steamworks.
 * Double check builds are for i686 rather than x64

@@ -136,7 +136,7 @@ fn build_ui(application: &gtk::Application) {
 
     let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
     ssdk_path.connect_focus_out_event(move |_widget, _event| {
-        let mut inst = &mut MODEL.installation.write().unwrap();
+        let inst = &mut MODEL.installation.write().unwrap();
         let t = _widget.get_text().unwrap();
         let p = Path::new(t.as_str());
 
