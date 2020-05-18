@@ -6,7 +6,7 @@ use crate::platform::{of_path, ssdk_exe};
 use std::fs::File;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::ffi::OsString;
+use std::ffi::{OsString, OsStr};
 use std::process::Command;
 
 use serde_derive::{Serialize, Deserialize};
@@ -45,11 +45,6 @@ impl Installation {
     pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
         println!("No steam wrangler");
         Ok(())
-        // let r = wrangle_steam_and_get_ssdk_path()?;
-        // if self.ssdk_path.into_os_string().is_empty() {
-        //     self.ssdk_path = r;
-        // }
-        // Ok(())
     }
     /// Saves the installation to the file.
     /// Replaces it atomically with renaming.
@@ -70,21 +65,27 @@ impl Installation {
     /// run game
     /// very little checking, just goes for it
     pub fn launch(&self) {
-        let mut cmd = Command::new(&self.ssdk_path.join(ssdk_exe()));
-        println!("command: {:?}", cmd);
+        let mut args = self.get_launch_args();
+        let ssdk_cmd = self.ssdk_path.join(ssdk_exe()).into_os_string();
+        let cmd = if let Some(idx) = args.iter().position(|arg| arg==OsStr::new("%command%")){
+            args[idx] = ssdk_cmd;
+            args.remove(0)
+        }else{
+            ssdk_cmd
+        };
+
+        let mut cmd = Command::new(&cmd);
         cmd.current_dir(&self.ssdk_path);
         if cfg!(target_os="linux"){
             cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
         }
-        cmd.args(self.get_launch_args());
+        cmd.args(args);
         cmd.spawn().unwrap();
     }
 
     fn get_launch_args(&self) -> Vec<OsString> {
         let mut args = vec![];
 
-        args.push("-game".to_string().into());
-        args.push(of_path().join("open_fortress").into_os_string());
 
         // I'm sure this is implemented somewhere, but I don't feel like finding it.
         // passing it to `sh` would work, but isn't portable.
@@ -123,6 +124,10 @@ impl Installation {
         if !arg.is_empty(){
             args.push(arg.into());
         }
+
+        args.push("-game".to_string().into());
+        args.push(of_path().join("open_fortress").into_os_string());
+
         args
     }
 }

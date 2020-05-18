@@ -114,7 +114,7 @@ fn build_ui(application: &gtk::Application) {
 
     // Set the background image
     let background: Image = builder.get_object("background").unwrap();
-    // background.set_from_pixbuf(Some(&load_bg()));
+    background.set_from_pixbuf(Some(&load_bg()));
 
     // Set the tab's icons
     let play_tabicon: Image = builder.get_object("play-tab").unwrap();
@@ -133,7 +133,6 @@ fn build_ui(application: &gtk::Application) {
             MODEL.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
         }
     });
-
 
     let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
     ssdk_path.connect_focus_out_event(move |_widget, _event| {
