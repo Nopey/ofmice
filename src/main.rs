@@ -63,10 +63,6 @@ fn load_glade() -> &'static str {
     include_str!("res/main.glade")
 }
 
-lazy_static!{
-    static ref MODEL: Model = Model::new();
-}
-
 struct Model {
     /// the entire installation struct is serialized to ~/.of/installation.json
     /// RWLocked so that the worker and main threads can share.
@@ -103,6 +99,10 @@ fn build_ui(application: &gtk::Application) {
         STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
+    // Errorbox setup goes here
+
+    let model = Rc::New(Model::new());
+
     // window needs application
     let window: ApplicationWindow = builder.get_object("window").unwrap();
     window.set_application(Some(application));
@@ -128,15 +128,15 @@ fn build_ui(application: &gtk::Application) {
 
     // Save the config when the config tab is navigated away from
     let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-    home_screen.connect_switch_page(|homescreen, _page, _page_num| {
+    home_screen.connect_switch_page(clone!( @weak model => |homescreen, _page, _page_num| {
         if homescreen.get_current_page()==Some(1) {
-            MODEL.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+            model.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
         }
-    });
+    }));
 
     let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
-    ssdk_path.connect_focus_out_event(move |_widget, _event| {
-        let inst = &mut MODEL.installation.write().unwrap();
+    ssdk_path.connect_focus_out_event(clone!(@weak model => move |_widget, _event| {
+        let inst = &mut model.installation.write().unwrap();
         let t = _widget.get_text().unwrap();
         let p = Path::new(t.as_str());
 
@@ -148,14 +148,14 @@ fn build_ui(application: &gtk::Application) {
         }
         // println!("Out of focus");
         Inhibit(false)
-    });
+    }));
 
-    connect_progress(&builder);
+    connect_progress(&builder, model);
 
     window.show_all();
 }
 
-fn connect_progress(builder: &Builder){
+fn connect_progress(builder: &Builder, model: &Rc<Model>){
     // Play button does things
     let play_button: Button = builder.get_object("play-button").unwrap();
     
@@ -172,7 +172,7 @@ fn connect_progress(builder: &Builder){
     ));
 
     let active = Rc::new(Cell::new(false));
-    play_button.connect_clicked( move |_| {
+    play_button.connect_clicked( clone!( @weak model => move |_| {
         if active.get() {
             return;
         }
@@ -193,14 +193,14 @@ fn connect_progress(builder: &Builder){
 
         let active = active.clone();
         let widgets = widgets.clone();
-        rx.attach(None, move |value| match value {
+        rx.attach(None, clone!(@weak model => move |value| match value {
             Some(value) => {
                 widgets.3
                     .set_fraction(f64::from(value) / 25.0);
 
                 if value == 25 {
                     let widgets = widgets.clone();
-                    MODEL.installation.read().unwrap().launch();
+                    model.installation.read().unwrap().launch();
                     gtk::timeout_add(1000, move || {
                         widgets.3.set_fraction(0.0);
                         widgets.0
@@ -215,8 +215,8 @@ fn connect_progress(builder: &Builder){
                 active.set(false);
                 glib::Continue(false)
             }
-        });
-    });
+        }));
+    }));
 }
 
 
