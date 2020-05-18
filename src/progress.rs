@@ -1,6 +1,6 @@
 //! is a helper for reporting progress
 //! depends on glib, but not gtk.
-use std::iter::ExactSizeIterator;
+use std::iter::{ExactSizeIterator, Zip};
 
 #[derive(Clone)]
 pub struct Progress<'a> {
@@ -44,9 +44,14 @@ impl<'a> Progress<'a> {
         }
     }
 
+    pub fn over<'b, I: ExactSizeIterator>(&'b self, i: I, message: &'b str) -> Zip<ProgressIter, I> {
+        self.divide(i.len(), message).zip(i)
+    }
+
     pub fn divide<'b>(&'b self, count: usize, message: &'b str) -> ProgressIter {
         let mut progress = self.clone();
         progress.len /= count as f64;
+        //TODO: include a (4/6 in the message by moving some stuff around)
         progress.parent = Some((&self, message));
         ProgressIter{
             progress,

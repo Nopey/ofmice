@@ -139,7 +139,7 @@ impl Installation {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct InstalledBin {
-    pub version: u64,
+    pub version: u32,
     pub files: Vec<PathBuf>,
     //TODO: integrity checking belongs here
 }

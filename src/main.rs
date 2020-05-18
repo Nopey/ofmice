@@ -1,4 +1,5 @@
 //! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
+// #![feature(async_closure)]
 mod res;
 
 use ofmice::*;
@@ -6,18 +7,19 @@ use res::*;
 use installation::Installation;
 use progress::Progress;
 use platform::ssdk_exe;
+use download::download;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use arc_swap::ArcSwap;
 use std::rc::Rc;
 use std::cell::Cell;
-use std::time::Duration;
-use std::thread;
+use std::ops::Deref;
 use std::path::Path;
 
 use gtk::prelude::*;
 use gio::prelude::*;
 use gio::ApplicationFlags;
-use glib::clone;
+use glib::{Continue, clone};
 use gtk::*;
 
 
@@ -49,8 +51,8 @@ impl ErrorDisplayer{
 
 struct Model {
     /// the entire installation struct is serialized to ~/.of/installation.json
-    /// RWLocked so that the worker and main threads can share.
-    pub installation: Arc<RwLock<Installation>>,
+    /// ArcSwap'd so that the worker and main threads can share.
+    pub installation: ArcSwap<Installation>,
     // any other fields you add here won't be saved between runs of the launcher
     // hold some news-related info here?
     // a stream for communicating with the worker thread
@@ -60,9 +62,7 @@ impl Model {
     fn new() -> Self {
         let installation = Installation::try_load().unwrap_or_default();
         Model{
-            installation: Arc::new(RwLock::new(
-                installation
-            ))
+            installation: ArcSwap::from(Arc::new(installation))
         }
     }
 }
@@ -84,7 +84,7 @@ fn build_ui(application: &gtk::Application) {
 
     // Errorbox setup goes here
 
-    let model = Rc::new(Model::new());
+    let model = Arc::new(Model::new());
 
     // window needs application
     let window: Window = builder.get_object("window").unwrap();
@@ -136,7 +136,7 @@ fn build_ui(application: &gtk::Application) {
         let model = model.clone();
         home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
             if home_screen.get_current_page()==Some(1) {
-                model.installation.read().unwrap().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+                model.installation.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
             }
         });
     }
@@ -145,13 +145,14 @@ fn build_ui(application: &gtk::Application) {
     {
         let model = model.clone();
         ssdk_path.connect_focus_out_event(move |_widget, _event| {
-            let inst = &mut model.installation.write().unwrap();
             let t = _widget.get_text().unwrap();
             let p = Path::new(t.as_str());
 
             if p.join(ssdk_exe()).exists() {
                 _widget.set_widget_name("valid-path");
+                let mut inst = model.installation.load().deref().deref().clone();
                 inst.ssdk_path = p.to_path_buf();
+                model.installation.store(Arc::new(inst));
             } else {
                 _widget.set_widget_name("invalid-path");
             }
@@ -160,16 +161,18 @@ fn build_ui(application: &gtk::Application) {
         });
     }
 
-    connect_progress(&builder, &model);
+    let ed = ErrorDisplayer {window: window.clone()};
+
+    connect_progress(&builder, &model, ed.clone());
 
     window.show_all();
 
-    let ed = ErrorDisplayer {window};
-
-    model.installation.write().unwrap().init_ssdk().unwrap_or_else(|e| ed.display_wrangler_err(e));
+    let mut inst = model.installation.load().deref().deref().clone();
+    inst.init_ssdk().unwrap_or_else(|e| ed.display_wrangler_err(e));
+    model.installation.store(Arc::new(inst));
 }
 
-fn connect_progress(builder: &Builder, model: &Rc<Model>){
+fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
     // Play button does things
     let play_button: Button = builder.get_object("play-button").unwrap();
     
@@ -194,19 +197,37 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
         active.set(true);
 
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        thread::spawn(move || {
+        let (err_tx, err_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        {
+            let model = model.clone();
+            // thread::spawn(move || {
             let progress = Progress::new(tx);
-            for (i, progress) in progress.divide(4, "Download").enumerate() {
+            tokio::spawn((move || async move{
+                let mut inst = model.installation.load().deref().deref().clone();
+                //TODO: handle DownloadError
+                download(&mut inst, progress).await.map_err(|e| err_tx.send(e).ok()).ok();
+                model.installation.store(Arc::new(inst));
+            })());
+            
+            /*for (i, progress) in progress.divide(4, "Download").enumerate() {
                 for v in 0..100 {
                     let _ = progress.send(v as f64/100f64, &format!("File {} of 4: {}%", i+1, v));
-                    thread::sleep(Duration::from_millis(50));
+                    thread::sleep(Duration::from_millis(10));
                 }
             }
-            progress.finish();
+            progress.finish();*/
+            
+            // });
+        }
+
+        
+        let ed = ed.clone();
+        err_rx.attach(None, move |_value: download::DownloadError| {
+            ed.display_error("TODO: actually handle errors properly");
+            Continue(false)
         });
 
-        widgets.0
-            .set_visible_child(&widgets.2);
+        widgets.0.set_visible_child(&widgets.2);
 
         let active = active.clone();
         let widgets = widgets.clone();
@@ -215,14 +236,14 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
             Some((value, message)) => {
                 widgets.3.set_fraction(value);
                 widgets.3.set_text(Some(&message));
-                glib::Continue(true)
+                Continue(true)
             }
             None => {
                 let widgets = widgets.clone();
-                model.installation.read().unwrap().launch();
+                model.installation.load().launch();
                 widgets.0.set_visible_child(&widgets.1);
                 active.set(false);
-                glib::Continue(false)
+                Continue(false)
             }
         });
     }));
@@ -244,15 +265,14 @@ fn draw(_window: &Window, ctx: &cairo::Context) -> Inhibit {
     ctx.paint();
     Inhibit(false)
 }
-
 #[tokio::main]
 async fn main() {
     // pretty_env_logger::init();
 
-    let old = installation::Installation::try_load().unwrap_or_default();
+    // let old = installation::Installation::try_load().unwrap_or_default();
     // let mut new = old.clone();
     // download::download(&mut new).await.unwrap();
-    println!("update available: {:?}", download::is_update_available(&old).await);
+    // println!("update available: {:?}", download::is_update_available(&old).await);
     // new.save_changes().unwrap();
 
     let uiapp = gtk::Application::new(Some("fun.openfortress.ofmice"),

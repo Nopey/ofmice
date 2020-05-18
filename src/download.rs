@@ -1,6 +1,7 @@
 use crate::platform;
 use crate::platform::of_path;
 use crate::installation::*;
+use crate::progress::Progress;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -28,9 +29,9 @@ struct Index{
 /// The name is a pun of Bin and index.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Bindex {
-    pub version: u64,
+    pub version: u32,
     //TODO: Patch newtype.
-    pub patch_tail: u64,
+    pub patch_tail: u32,
 }
 
 const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
@@ -78,11 +79,12 @@ pub async fn is_update_available(installation: &Installation) -> Result<bool, Do
 
 //TODO: Stream the download through xz and tar
 /// Downloads the latest update
-pub async fn download(installation: &mut Installation) -> Result<(), DownloadError> {
+pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result<(), DownloadError>{
     use DownloadError::*;
     //TODO: replace some of these unwraps with BadResponse masks
     //TODO: make a function that eprintln!'s the error before returning BadResponse.
     // (maybe report the error, too)
+    progress.send(0f64, "Downloading index");
 
     // Install our self signed certificate
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
@@ -102,10 +104,11 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
     // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
     let bins = platform::bins().iter();
 
-    for &bin in bins {
+    for (progress, &bin) in progress.over(bins, "Checking Bin") {
         println!("[download] considering bin {}", bin);
+        progress.send(0f64, &format!("{}: Checking Signature", bin));
         let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
-        let mut binst = &mut installation.bins.entry(bin.to_owned()).or_insert_with(|| {println!("clearing a bin");InstalledBin::new()});
+        let mut binst = &mut inst.bins.entry(bin.to_owned()).or_insert_with(|| {println!("clearing a bin");InstalledBin::new()});
         let oldversion = binst.version;
         println!("installed ver:\t{}\nindex ver:\t{}", oldversion, bindex.version);
         let delta_dist = bindex.version - oldversion;
@@ -119,15 +122,17 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
             // mark uninstalled (if we're interrupted or fail, don't attempt to patch)
             binst.version = 0;
             drop(binst);
-            installation.save_changes().map_err(|_| WriteErr)?;
+            inst.save_changes().map_err(|_| WriteErr)?;
 
-            for patch_id in oldversion..bindex.version{
+            for (progress, patch_id) in progress.over(oldversion..bindex.version, "Applying Patch") {
+                progress.send(0f64, "Downloading");
                 let url = format!("{}{}-patch{}.tar.xz", BASEURL, bin, patch_id);
                 let dottarxz = client.get(&url).send().await
                     .map_err(|_| ConnectionFailure)?.bytes().await
                     .map_err(|_| ConnectionFailure)?;
                 let dottar = read::XzDecoder::new(dottarxz.as_ref());
-                
+
+                progress.send(0.5f64, "Applying");
                 let mut ar = Archive::new(dottar);
                 for file in ar.entries().unwrap() {
                     let mut f = file.map_err(|_| BadResponse)?;
@@ -173,14 +178,20 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
             // mark uninstalled
             binst.version = 0;
             drop(binst);
-            installation.save_changes().map_err(|_| WriteErr)?;
+            inst.save_changes().map_err(|_| WriteErr)?;
             
             // Delete every previously installed file
-            for file in &installation.bins[bin].files {
+            for file in &inst.bins[bin].files {
                 // if it fails, we don't really care.
                 std::fs::remove_file(file).ok();
             }
 
+            // I split the iter here so that I can
+            // split it again for the Download.
+            let mut piter = progress.divide(2, "Clean Install");
+            let progress = piter.next().unwrap();
+            //TODO: Download progress within the file
+            progress.send(0f64, "Downloading");
             // Must download from scratch
             let url = format!("{}{}.tar.xz", BASEURL, bin);
             let dottarxz = client.get(&url).send().await
@@ -188,19 +199,23 @@ pub async fn download(installation: &mut Installation) -> Result<(), DownloadErr
                 .map_err(|_| ConnectionFailure)?;
             let dottar = read::XzDecoder::new(dottarxz.as_ref());
             
+            let progress = piter.next().unwrap();
+            progress.send(0f64, "Installing");
             let mut ar = Archive::new(dottar);
             for file in ar.entries().unwrap() {
                 let mut f = file.map_err(|_| BadResponse)?;
                 let outpath = of_path().join(f.path().map_err(|_| BadResponse)?);
                 std::fs::create_dir_all(outpath.parent().unwrap()).map_err(|_| BadResponse)?;
                 f.unpack_in(of_path()).map_err(|_| WriteErr)?;
-                installation.bins.get_mut(bin).unwrap().files.push(outpath);
+                inst.bins.get_mut(bin).unwrap().files.push(outpath);
 
                 //TODO: Signature recording
             }
-            installation.bins.get_mut(bin).unwrap().version = bindex.version;
-            installation.save_changes().map_err(|_| WriteErr)?;
+
+            inst.bins.get_mut(bin).unwrap().version = bindex.version;
+            inst.save_changes().map_err(|_| WriteErr)?;
         }
     }
+    progress.finish();
     Ok(())
 }
