@@ -3,8 +3,10 @@ mod res;
 
 use ofmice::*;
 use res::*;
-
 use installation::Installation;
+use progress::Progress;
+use platform::ssdk_exe;
+
 use std::sync::{Arc, RwLock};
 use std::rc::Rc;
 use std::cell::Cell;
@@ -18,7 +20,6 @@ use gio::ApplicationFlags;
 use glib::clone;
 use gtk::*;
 
-use crate::platform::ssdk_exe;
 
 #[derive(Clone)]
 struct ErrorDisplayer{
@@ -194,11 +195,14 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
 
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         thread::spawn(move || {
-            for v in 1..=25 {
-                let _ = tx.send(Some(v));
-                thread::sleep(Duration::from_millis(200));
+            let progress = Progress::new(tx);
+            for (i, progress) in progress.divide(4, "Download").enumerate() {
+                for v in 0..100 {
+                    let _ = progress.send(v as f64/100f64, &format!("File {} of 4: {}%", i+1, v));
+                    thread::sleep(Duration::from_millis(50));
+                }
             }
-            let _ = tx.send(None);
+            progress.finish();
         });
 
         widgets.0
@@ -208,24 +212,15 @@ fn connect_progress(builder: &Builder, model: &Rc<Model>){
         let widgets = widgets.clone();
         let model = model.clone();
         rx.attach(None, move |value| match value {
-            Some(value) => {
-                widgets.3
-                    .set_fraction(f64::from(value) / 25.0);
-
-                if value == 25 {
-                    let widgets = widgets.clone();
-                    model.installation.read().unwrap().launch();
-                    gtk::timeout_add(1000, move || {
-                        widgets.3.set_fraction(0.0);
-                        widgets.0
-                            .set_visible_child(&widgets.1);
-                        glib::Continue(false)
-                    });
-                }
-
+            Some((value, message)) => {
+                widgets.3.set_fraction(value);
+                widgets.3.set_text(Some(&message));
                 glib::Continue(true)
             }
             None => {
+                let widgets = widgets.clone();
+                model.installation.read().unwrap().launch();
+                widgets.0.set_visible_child(&widgets.1);
                 active.set(false);
                 glib::Continue(false)
             }

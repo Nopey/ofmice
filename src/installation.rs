@@ -65,6 +65,11 @@ impl Installation {
     /// run game
     /// very little checking, just goes for it
     pub fn launch(&self) {
+        if self.ssdk_path.as_os_str().is_empty(){
+            eprintln!("installation: cowardly not launching");
+            return;
+        }
+
         let mut args = self.get_launch_args();
         let ssdk_cmd = self.ssdk_path.join(ssdk_exe()).into_os_string();
         let cmd = if let Some(idx) = args.iter().position(|arg| arg==OsStr::new("%command%")){
@@ -80,7 +85,7 @@ impl Installation {
             cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
         }
         cmd.args(args);
-        cmd.spawn().unwrap();
+        cmd.spawn().expect("failed to launch game");
     }
 
     fn get_launch_args(&self) -> Vec<OsString> {

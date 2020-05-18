@@ -5,6 +5,7 @@ pub mod download;
 pub mod installation;
 #[cfg(feature = "steam_wrangler")]
 pub mod steam_wrangler;
+pub mod progress;
 
 #[derive(Debug, Clone, Copy)]
 pub enum WranglerError{
