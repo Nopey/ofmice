@@ -110,7 +110,24 @@ fn build_ui(application: &gtk::Application) {
 
     // Set the version
     let version: Label = builder.get_object("version").unwrap();
-    version.set_label(env!("CARGO_PKG_VERSION"));
+    version.set_label(&format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")));
+    {
+        let credits: EventBox = builder.get_object("credits_event").unwrap();
+        let window = window.clone();
+        credits.connect_button_press_event(move |_, _|{
+            let credits = format!("Launcher written by:\n{}\nTODO: List crates used and stuff, especially the MIT APACHE and BSD licensed ones.\nMaybe have a series of credits boxes", env!("CARGO_PKG_AUTHORS").replace(':', "\n"));
+            let md = MessageDialog::new(
+                Some(&window),
+                DialogFlags::MODAL|DialogFlags::DESTROY_WITH_PARENT,
+                MessageType::Info,
+                ButtonsType::Ok,
+                &credits
+            );
+            md.run();
+            md.destroy();
+            Inhibit(true)
+        });
+    }
 
     // Save the config when the config tab is navigated away from
     let home_screen: Notebook = builder.get_object("home_screen").unwrap();

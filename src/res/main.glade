@@ -45,9 +45,13 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkLabel" id="version">
-                        <property name="label" translatable="no"></property>
-                        <property name="valign">end</property>
+                      <object class="GtkEventBox" id="credits_event">
+                        <child>
+                          <object class="GtkLabel" id="version">
+                            <property name="label" translatable="no"></property>
+                            <property name="valign">end</property>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
