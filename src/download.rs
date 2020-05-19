@@ -21,14 +21,14 @@ pub enum DownloadError{
 }
 
 /// a list of patches and other downloads
-#[derive(Debug, Deserialize)]
-struct Index {
-    bindices: HashMap<String, Bindex>,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Index {
+    pub bindices: HashMap<String, Bindex>,
 }
 
 impl Index {
     async fn get(client: &Client) -> Result<Self, DownloadError> {
-        let response = client.get(BASEURL).send().await;
+        let response = client.get(&format!("{}{}", BASEURL, "index.json")).send().await;
         response.map_err(|_| DownloadError::ConnectionFailure)?
             .json().await.map_err(bad_response)
     }
@@ -57,12 +57,12 @@ fn make_client() -> Client{
 }
 
 const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
+// const BASEURL: &'static str = "https://69.195.157.245:443/of/mice/";
 
 pub async fn self_update() -> Result<(), DownloadError> {
     let client = make_client();
-    let new_version = client.get(&format!("{}{}", BASEURL, platform::ofmice_binary())).send().await;
-        response.map_err(|_| DownloadError::ConnectionFailure)?
-            .text().await?.map_err(bad_response);
+    let new_version = client.get(&format!("{}{}", BASEURL, "launcher_version.txt")).send()
+        .await.map_err(bad_response)?.text().await.map_err(bad_response)?;
     if new_version!=env!("CARGO_PKG_VERSION"){
         // ooga booga we updating boys
         todo!()
