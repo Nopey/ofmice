@@ -1,0 +1,8 @@
+{"bindices":{
+"client": {"version": 0, "patch_tail": 0},
+"server": {"version": 0, "patch_tail": 0},
+"client_linux": {"version": 0, "patch_tail": 0},
+"client_windows": {"version": 0, "patch_tail": 0},
+"server_linux": {"version": 0, "patch_tail": 0},
+"server_windows": {"version": 0, "patch_tail": 0}
+}}

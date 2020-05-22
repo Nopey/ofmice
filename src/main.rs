@@ -212,7 +212,8 @@ fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
 
         
         let ed = ed.clone();
-        err_rx.attach(None, move |_value: download::DownloadError| {
+        err_rx.attach(None, move |e: download::DownloadError| {
+            eprintln!("DownloadError: {:?}", e);
             ed.display_error("TODO: actually handle DownloadErrors properly");
             Continue(false)
         });

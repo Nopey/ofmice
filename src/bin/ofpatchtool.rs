@@ -5,7 +5,9 @@ use std::fs::{File, rename, OpenOptions};
 use std::io::Write;
 
 fn main(){
-    let www = args().skip(1).next().expect("Expected 1 argument, the www ofmice dir");
+    let mut a = args().skip(1);
+    let www = a.next().expect("Expected first of 2 arguments, the www ofmice dir");
+    let patch_tail: u32 = a.next().expect("Expected second of 2 arguments, the patch tail len").parse().unwrap();
     let real_name = format!("{}/index.json", www);
     let temp_name = format!("{}/staging/index.json", www);
     let file = File::open(&real_name).unwrap();
@@ -16,7 +18,7 @@ fn main(){
 
     // find all the tarballs
     for (bin, bindex) in index.bindices.iter_mut() {
-        if bindex.patch_tail < 30 {
+        if bindex.patch_tail < patch_tail {
             bindex.patch_tail += 1;
         } else {
             writeln!(del, "{}{}-patch{}.tar.xz", www, bin, bindex.version - bindex.patch_tail).unwrap();
@@ -30,6 +32,6 @@ fn main(){
     }
     // save index
     let temp = File::create(&temp_name).unwrap();
-    // serde_json::to_writer_pretty(temp, self)
-    serde_json::to_writer(temp, &index).unwrap();
+    serde_json::to_writer_pretty(temp, &index).unwrap();
+    // serde_json::to_writer(temp, &index).unwrap();
 }

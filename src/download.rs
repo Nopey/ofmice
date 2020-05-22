@@ -29,7 +29,7 @@ pub struct Index {
 impl Index {
     async fn get(client: &Client) -> Result<Self, DownloadError> {
         let response = client.get(&format!("{}{}", BASEURL, "index.json")).send().await;
-        response.map_err(|_| DownloadError::ConnectionFailure)?
+        response.map_err(connection_failure)?
             .json().await.map_err(bad_response)
     }
 }
@@ -37,6 +37,11 @@ impl Index {
 fn bad_response<E: std::fmt::Debug + Sized>(e: E) -> DownloadError {
     eprintln!("BadResponse: {:?}", e);
     DownloadError::BadResponse
+}
+
+fn connection_failure<E: std::fmt::Debug + Sized>(e: E) -> DownloadError {
+    eprintln!("ConnectionFailure: {:?}", e);
+    DownloadError::ConnectionFailure
 }
 
 /// The name is a pun of Bin and index.
@@ -50,14 +55,14 @@ pub struct Bindex {
 fn make_client() -> Client{
     // Install our self signed certificate
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
-    let cert = Certificate::from_pem(include_bytes!("of.ssl.cert")).unwrap();
+    let cert = Certificate::from_pem(include_bytes!("of-ca.cert")).unwrap();
     let client = Client::builder()
         .add_root_certificate(cert).build().unwrap();
     client
 }
 
-const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
-// const BASEURL: &'static str = "https://69.195.157.245:443/of/mice/";
+// const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
+const BASEURL: &'static str = "https://69.195.157.245:8443/of/mice/";
 
 pub async fn self_update() -> Result<(), DownloadError> {
     let client = make_client();
@@ -102,7 +107,7 @@ pub async fn is_update_available(installation: &Installation) -> Result<bool, Do
     Ok(false)
 }
 
-//TODO: Stream the download through xz and tar
+//TODO: Stream the download through xz and tar?
 /// Downloads the latest update
 pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result<(), DownloadError>{
     use DownloadError::*;
@@ -138,6 +143,7 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
 
             // mark uninstalled (if we're interrupted or fail, don't attempt to patch)
             binst.version = 0;
+            binst.files.clear();
             drop(binst);
             inst.save_changes().map_err(|_| WriteErr)?;
 
@@ -194,11 +200,12 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
             println!("full-download");
             // mark uninstalled
             binst.version = 0;
+            let files = std::mem::take(&mut binst.files);
             drop(binst);
             inst.save_changes().map_err(|_| WriteErr)?;
             
             // Delete every previously installed file
-            for file in &inst.bins[bin].files {
+            for file in files {
                 // if it fails, we don't really care.
                 std::fs::remove_file(file).ok();
             }

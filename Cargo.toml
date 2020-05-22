@@ -28,7 +28,8 @@ strum_macros = "0.18.0"
 
 
 # for steam_wrangler. libsteam_api.so
-steamworks = { version = "0.6.1", optional = true }
+# steamworks = { version = "0.6.1", optional = true }
+steamworks = { optional = true, git = "https://github.com/Thinkofname/steamworks-rs" }
 
 # download and installation use these
 reqwest = { version = "0.10.4", features = ["default-tls", "json", "stream"] }

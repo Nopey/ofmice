@@ -23,12 +23,13 @@ TODO: Other miscellanious system dependencies
 * Write bash script that generates patches and tarballs from svn
     (basic patch logic already complete)
 * Modify gameinfo.txt to hard-code TF2 Location. (hashsum it after)
+* `ofserver` binary that is basically `ofmice` but for dedicated servers
 
 ### UI things
 * disable launch button if it outlook is bad
 * investigate russian translation
 * make button look like update button when updates needed
-
+* add a close button and disable decorations with https://developer.gnome.org/gtk3/stable/GtkWindow.html#gtk-window-set-decorated
 
 ### distribution things
 * Launcher self update detection

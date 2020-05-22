@@ -133,7 +133,7 @@ impl Installation {
         args.push("-game".to_string().into());
         args.push(of_path().join("open_fortress").into_os_string());
 
-        args
+        dbg!(args)
     }
 }
 
