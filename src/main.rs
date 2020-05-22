@@ -16,11 +16,13 @@ use std::cell::Cell;
 use std::ops::Deref;
 use std::path::Path;
 
+use lazy_static::lazy_static;
 use gtk::prelude::*;
 use gio::prelude::*;
 use gio::ApplicationFlags;
-use glib::{Continue, clone};
+use glib::Continue;
 use gtk::*;
+use gdk_pixbuf::Pixbuf;
 
 
 #[derive(Clone)]
@@ -49,149 +51,48 @@ impl ErrorDisplayer{
     }
 }
 
-struct Model {
-    /// the entire installation struct is serialized to ~/.of/installation.json
+lazy_static!{
+    /// the entire installation struct is serialized to ~/.of/INST.json
     /// ArcSwap'd so that the worker and main threads can share.
-    pub installation: ArcSwap<Installation>,
+    static ref INST: ArcSwap<Installation> = ArcSwap::from(Arc::new(Installation::try_load().unwrap_or_default()));
+}
+
+struct Model {
     // any other fields you add here won't be saved between runs of the launcher
     // hold some news-related info here?
     // a stream for communicating with the worker thread
+    button_pixbufs: [Pixbuf; 5],
+    // Errorbox
+    //TODO: Maybe migrate everything off of the errordisplayer type onto Model?
+    ed: ErrorDisplayer,
+    /// What is the main button displaying?
+    main_button_state: Cell<usize>, // TODO: make this an enum.
+    play_button_image: Image,
 }
 
 impl Model {
-    fn new() -> Self {
-        let installation = Installation::try_load().unwrap_or_default();
-        Model{
-            installation: ArcSwap::from(Arc::new(installation))
-        }
+    /// play game, no update
+    fn action_play(&self){
+        // is it as simple as:
+        // INST.load().launch();
+        todo!()
     }
-}
+    /// update game, no play
+    /// (change button to play once done, if no err)
+    fn action_update(&self){
+        /*
 
-fn build_ui(application: &gtk::Application) {
-    // Build our UI from ze XML
-    let builder = Builder::new_from_string(load_glade().as_ref());
+        // new fields for Model:
+            stack,
+            home_screen,
+            progress_screen,
+            progress_bar,
+            active: Rc<Cell<bool>, 
+        
+        // active: Rc::new(Cell::new(false)),
 
-    // Apply the CSS to ze XML
-    let provider = CssProvider::new();
-    provider
-        .load_from_data(load_css().as_ref())
-        .expect("Failed to load CSS");
-    StyleContext::add_provider_for_screen(
-        &gdk::Screen::get_default().expect("Error initializing gtk css provider."),
-        &provider,
-        STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
-
-    // Errorbox setup goes here
-
-    let model = Arc::new(Model::new());
-
-    // window needs application
-    let window: Window = builder.get_object("window").unwrap();
-    window.set_application(Some(application));
-
-    // transparent hooks
-    set_visual(&window, None);
-    window.connect_draw(draw);
-    window.connect_screen_changed(set_visual);
-
-    // Set the background image
-    let background: Image = builder.get_object("background").unwrap();
-    background.set_from_pixbuf(Some(&load_bg()));
-
-    // Set the tab's icons
-    let play_tabicon: Image = builder.get_object("play-tab").unwrap();
-    play_tabicon.set_from_pixbuf(Some(&load_play_icon()));
-    let config_tabicon: Image = builder.get_object("config-tab").unwrap();
-    config_tabicon.set_from_pixbuf(Some(&load_config_icon()));
-
-    // Set the main logo
-    let logo: Image = builder.get_object("logo").unwrap();
-    logo.set_from_pixbuf(Some(&load_logo()));
-
-    // Set the version
-    let version: Label = builder.get_object("version").unwrap();
-    version.set_label(&format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")));
-    {
-        let credits: EventBox = builder.get_object("credits_event").unwrap();
-        let window = window.clone();
-        credits.connect_button_press_event(move |_, _|{
-            let credits = format!("Launcher written by:\n{}\nTODO: List crates used and stuff, especially the MIT APACHE and BSD licensed ones.\nMaybe have a series of credits boxes", env!("CARGO_PKG_AUTHORS").replace(':', "\n"));
-            let md = MessageDialog::new(
-                Some(&window),
-                DialogFlags::MODAL|DialogFlags::DESTROY_WITH_PARENT,
-                MessageType::Info,
-                ButtonsType::Ok,
-                &credits
-            );
-            md.run();
-            md.destroy();
-            Inhibit(true)
-        });
-    }
-
-    // Save the config when the config tab is navigated away from
-    let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-    {
-        let model = model.clone();
-        home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
-            if home_screen.get_current_page()==Some(1) {
-                model.installation.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
-            }
-        });
-    }
-
-    let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
-    {
-        let model = model.clone();
-        ssdk_path.connect_focus_out_event(move |_widget, _event| {
-            let t = _widget.get_text().unwrap();
-            let p = Path::new(t.as_str());
-
-            if p.join(ssdk_exe()).exists() {
-                _widget.set_widget_name("valid-path");
-                let mut inst = model.installation.load().deref().deref().clone();
-                inst.ssdk_path = p.to_path_buf();
-                model.installation.store(Arc::new(inst));
-            } else {
-                _widget.set_widget_name("invalid-path");
-            }
-            // println!("Out of focus");
-            Inhibit(false)
-        });
-    }
-
-    let ed = ErrorDisplayer {window: window.clone()};
-
-    connect_progress(&builder, &model, ed.clone());
-
-    window.show_all();
-
-    let mut inst = model.installation.load().deref().deref().clone();
-    inst.init_ssdk().unwrap_or_else(|e| ed.display_wrangler_err(e));
-    model.installation.store(Arc::new(inst));
-}
-
-fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
-    // Play button does things
-    let play_button: Button = builder.get_object("play-button").unwrap();
-    
-    let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-    let progress_screen: Box = builder.get_object("progress_screen").unwrap();
-    let stack: Stack = builder.get_object("stack").unwrap();
-    let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
-    
-    let widgets = Rc::new((
-        stack,
-        home_screen,
-        progress_screen,
-        progress_bar,
-    ));
-
-    let active = Rc::new(Cell::new(false));
-    play_button.connect_clicked( clone!( @weak model => move |_| {
         if active.get() {
-            return;
+            return Inhibit(false);
         }
 
         active.set(true);
@@ -199,30 +100,29 @@ fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (err_tx, err_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         {
-            let model = model.clone();
             // thread::spawn(move || {
             let progress = Progress::new(tx);
             tokio::spawn((move || async move{
-                let mut inst = model.installation.load().deref().deref().clone();
+                let mut inst = INST.load().deref().deref().clone();
 
                 download(&mut inst, progress).await.map_err(|e| err_tx.send(e).ok()).ok();
-                model.installation.store(Arc::new(inst));
+                INST.store(Arc::new(inst));
             })());
         }
 
-        
-        let ed = ed.clone();
-        err_rx.attach(None, move |e: download::DownloadError| {
-            eprintln!("DownloadError: {:?}", e);
-            ed.display_error("TODO: actually handle DownloadErrors properly");
-            Continue(false)
-        });
+        {
+            let model = model.clone();
+            err_rx.attach(None, move |e: download::DownloadError| {
+                eprintln!("DownloadError: {:?}", e);
+                model.ed.display_error("TODO: actually handle DownloadErrors properly");
+                Continue(false)
+            });
+        }
 
         widgets.0.set_visible_child(&widgets.2);
 
         let active = active.clone();
         let widgets = widgets.clone();
-        let model = model.clone();
         rx.attach(None, move |value| match value {
             Some((value, message)) => {
                 widgets.3.set_fraction(value);
@@ -231,13 +131,199 @@ fn connect_progress(builder: &Builder, model: &Arc<Model>, ed: ErrorDisplayer){
             }
             None => {
                 let widgets = widgets.clone();
-                model.installation.load().launch();
                 widgets.0.set_visible_child(&widgets.1);
                 active.set(false);
                 Continue(false)
             }
         });
-    }));
+        */
+        todo!()
+    }
+    /// go to config tab
+    /// because the SSDK path is invalid.
+    fn action_config(&self){
+        todo!()
+    }
+    /// Decides what action should happen
+    /// when the main button is pressed
+    fn action_main_button(&self){
+        match self.main_button_state.get(){
+            0 => self.action_update(),
+            1 => self.action_play(),
+            2 => (), // offline button.. should it play?
+            3 => self.action_config(),
+            4 => (), // wait button. impatient user, eh?
+            // the _ will become unnecessary once an enum is used for the state
+            e => panic!("invalid main_button_state {}", e),
+        }
+    }
+    fn set_main_button_state(&self, state: usize){
+        self.main_button_state.set(state);
+        self.play_button_image.set_from_pixbuf(Some(&self.button_pixbufs[state]));
+    }
+
+    fn build_ui(application: &gtk::Application) {
+        // Build our UI from ze XML
+        let builder = Builder::new_from_string(load_glade().as_ref());
+
+        // Apply the CSS to ze XML
+        let provider = CssProvider::new();
+        provider
+            .load_from_data(load_css().as_ref())
+            .expect("Failed to load CSS");
+        StyleContext::add_provider_for_screen(
+            &gdk::Screen::get_default().expect("Error initializing gtk css provider."),
+            &provider,
+            STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+
+        // window needs application
+        let window: Window = builder.get_object("window").unwrap();
+        window.set_application(Some(application));
+
+        // Load play button pixbufs
+        let button_pixbufs = load_button_pixbufs();
+
+        // Check what the play button will do
+        let play_button_image: Image = builder.get_object("play_button_image").unwrap();
+
+        // For the UI model
+        let model = Rc::new(Model{
+            button_pixbufs,
+            ed: ErrorDisplayer{window: window.clone()},
+            main_button_state: Cell::new(if INST.load().are_paths_good(){4}else{3}), // WAIT else CONFIG
+            play_button_image: play_button_image.clone()
+        });
+
+        // steam_wrangler if needed
+        let mut inst = INST.load().deref().deref().clone();
+        inst.init_ssdk().unwrap_or_else(|e| model.ed.display_wrangler_err(e));
+        INST.store(Arc::new(inst));
+
+        // initialize state
+        play_button_image.set_from_pixbuf(Some(&model.button_pixbufs[model.main_button_state.get()]));
+
+        if model.main_button_state.get()==4 { //WAIT
+            let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+
+            //TODO: occasionally check for updates if idle?
+            tokio::spawn( ( move || { async move {
+                tx.send(match download::is_update_available(&INST.load()).await {
+                    Ok(true) => 0,
+                    Ok(false) => 1,
+                    Err(_) => 2,
+                }).unwrap();
+            }})());
+
+            let model = model.clone();
+            rx.attach(None, move |value| {model.set_main_button_state(value); Continue(false)});
+        }
+
+        // transparent hooks
+        set_visual(&window, None);
+        window.connect_draw(draw);
+        window.connect_screen_changed(set_visual);
+
+        // Set the background image
+        let background: Image = builder.get_object("background").unwrap();
+        background.set_from_pixbuf(Some(&load_bg()));
+
+        // Set the tab's icons
+        let play_tabicon: Image = builder.get_object("play_tab").unwrap();
+        play_tabicon.set_from_pixbuf(Some(&load_play_icon()));
+        let config_tabicon: Image = builder.get_object("config_tab").unwrap();
+        config_tabicon.set_from_pixbuf(Some(&load_config_icon()));
+
+        // close button icon
+        let close_image: Image = builder.get_object("close_image").unwrap();
+        close_image.set_from_pixbuf(Some(&load_close_icon()));
+        // and action
+        let close_eventbox: EventBox = builder.get_object("close_eventbox").unwrap();
+        {
+            let window = window.clone();
+            close_eventbox.connect_button_press_event(move |_,_|{
+                window.close();
+                Inhibit(false)
+            });
+        }
+
+        // Set the main logo
+        let logo: Image = builder.get_object("logo").unwrap();
+        logo.set_from_pixbuf(Some(&load_logo()));
+
+        // Set the version
+        let version: Label = builder.get_object("version").unwrap();
+        version.set_label(&format!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")));
+        {
+            let credits: EventBox = builder.get_object("credits_event").unwrap();
+            let window = window.clone();
+            credits.connect_button_press_event(move |_, _|{
+                let credits = format!("Launcher written by:\n{}\nTODO: List crates used and stuff, especially the MIT APACHE and BSD licensed ones.\nMaybe have a series of credits boxes", env!("CARGO_PKG_AUTHORS").replace(':', "\n"));
+                //TODO: use the about dialog
+                let md = MessageDialog::new(
+                    Some(&window),
+                    DialogFlags::MODAL|DialogFlags::DESTROY_WITH_PARENT,
+                    MessageType::Info,
+                    ButtonsType::Ok,
+                    &credits
+                );
+                md.run();
+                md.destroy();
+                Inhibit(true)
+            });
+        }
+
+        // Save the config when the config tab is navigated away from
+        let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+        home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
+            if home_screen.get_current_page()==Some(1) {
+                INST.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+            }
+        });
+        
+
+        let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
+        ssdk_path.set_text(&INST.load().ssdk_path.to_string_lossy());
+        ssdk_path.connect_focus_out_event(move |widget, _event| {
+            let t = widget.get_text().unwrap();
+            let p = Path::new(t.as_str());
+
+            if p.join(ssdk_exe()).exists() {
+                widget.set_widget_name("valid-path");
+                let mut inst = INST.load().deref().deref().clone();
+                inst.ssdk_path = p.to_path_buf();
+                INST.store(Arc::new(inst));
+            } else {
+                widget.set_widget_name("invalid-path");
+            }
+            // println!("Out of focus");
+            Inhibit(false)
+        });
+
+        Self::connect_progress(&builder, model.clone());
+
+        window.show_all();
+    }
+
+    fn connect_progress(builder: &Builder, model: Rc<Model>){
+        // Play button does things
+        let play_button: EventBox = builder.get_object("play_button").unwrap();
+        
+        let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+        let progress_screen: Box = builder.get_object("progress_screen").unwrap();
+        let stack: Stack = builder.get_object("stack").unwrap();
+        let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
+        
+        
+
+        //TODO: Space bar for play?
+        {
+            play_button.connect_button_press_event( move |_,_| {
+                model.action_main_button();
+                Inhibit(false)
+            });
+        }
+    }
 }
 
 
@@ -270,7 +356,7 @@ async fn main() {
                     ApplicationFlags::FLAGS_NONE)
                 .expect("Application::new failed");
 
-    uiapp.connect_activate(build_ui);
+    uiapp.connect_activate(Model::build_ui);
 
     uiapp.run(&std::env::args().collect::<Vec<_>>());
 }

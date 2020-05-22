@@ -91,7 +91,6 @@ impl Installation {
     fn get_launch_args(&self) -> Vec<OsString> {
         let mut args = vec![];
 
-
         // I'm sure this is implemented somewhere, but I don't feel like finding it.
         // passing it to `sh` would work, but isn't portable.
         let mut arg = String::new();
@@ -134,6 +133,10 @@ impl Installation {
         args.push(of_path().join("open_fortress").into_os_string());
 
         dbg!(args)
+    }
+
+    pub fn are_paths_good(&self) -> bool{
+        !self.ssdk_path.as_os_str().is_empty()
     }
 }
 

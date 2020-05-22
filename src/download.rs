@@ -6,6 +6,7 @@ use crate::progress::Progress;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
+use std::time::Duration;
 
 use reqwest::{Client, Certificate};
 use serde_derive::{Serialize, Deserialize};
@@ -57,6 +58,7 @@ fn make_client() -> Client{
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
     let cert = Certificate::from_pem(include_bytes!("of-ca.cert")).unwrap();
     let client = Client::builder()
+        .timeout(Duration::new(8,0)) // 8 second timeout
         .add_root_certificate(cert).build().unwrap();
     client
 }

@@ -45,5 +45,6 @@ tokio = { version = "0.2.20", features = ["rt-threaded", "macros"] }
 gdk = "0.12.1"
 cairo-rs = "0.8.1"
 arc-swap = "0.4.6"
+lazy_static = "1.4.0"
 
 #unsorted

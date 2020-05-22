@@ -5,6 +5,7 @@
     <property name="default_width">640</property>
     <property name="default_height">360</property>
     <property name="resizable">false</property>
+    <property name="decorated">false</property>
     <property name="app_paintable">true</property>
     <child>
       <object class="GtkOverlay" id="overlay">
@@ -36,11 +37,14 @@
                         <property name="hexpand">true</property>
                         <property name="orientation">horizontal</property>
                         <child>
-                          <object class="GtkButton" id="play-button">
-                            <property name="name">play</property> <!-- used by css -->
-                            <property name="label" translatable="yes">Play</property>
-                            <property name="halign">center</property>
-                            <property name="hexpand">true</property>
+                          <object class="GtkEventBox" id="play_button">
+                          <!-- TODO: Make the eventbox smaller. Currently, clicking in the horizontal margins will hit the play button! -->
+                            <child>
+                              <object class="GtkImage" id="play_button_image">
+                                <property name="halign">center</property>
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
@@ -58,11 +62,11 @@
                   </object>
                 </child>
                 <child type="tab">
-                  <object class="GtkImage" id="play-tab" />
+                  <object class="GtkImage" id="play_tab" />
                 </child>
 
                 <child>
-                  <object class="GtkGrid" id="config-content">
+                  <object class="GtkGrid" id="config_content">
                     <property name="column-spacing">50</property>
                     <property name="row-spacing">20</property>
                     <property name="margin">20</property>
@@ -145,7 +149,7 @@
                   </object>
                 </child>
                 <child type="tab">
-                  <object class="GtkImage" id="config-tab" />
+                  <object class="GtkImage" id="config_tab" />
                 </child>
               </object>
             </child>
@@ -165,6 +169,16 @@
                     <property name="label" translatable="yes">Please wait..</property>
                   </object>
                 </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child type="overlay">
+          <object class="GtkEventBox" id="close_eventbox">
+            <property name="halign">end</property>
+            <property name="valign">start</property>
+            <child>
+              <object class="GtkImage" id="close_image">
               </object>
             </child>
           </object>
