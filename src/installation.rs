@@ -11,7 +11,10 @@ use std::process::Command;
 
 use serde_derive::{Serialize, Deserialize};
 use crate::WranglerError;
-
+use std::collections::hash_map::DefaultHasher;
+use std::io;
+use std::io::Read;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Installation {
@@ -32,7 +35,7 @@ impl Installation {
     }
 
     #[cfg(feature = "steam_wrangler")]
-    pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
+    pub fn init_ssdk(&mut self) -> Result<(), WranglerError> {
         use crate::steam_wrangler::*;
         let r = wrangle_steam_and_get_ssdk_path()?;
         if self.ssdk_path.as_os_str().is_empty() {
@@ -42,15 +45,15 @@ impl Installation {
     }
 
     #[cfg(not(feature = "steam_wrangler"))]
-    pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
+    pub fn init_ssdk(&mut self) -> Result<(), WranglerError> {
         println!("No steam wrangler");
         Ok(())
     }
     /// Saves the installation to the file.
     /// Replaces it atomically with renaming.
-    pub fn save_changes( &self ) -> Result<(),&'static str> {
+    pub fn save_changes(&self) -> Result<(), &'static str> {
         let temp_name = of_path().join(".").join(TRACK_FILE);
-        let real_name = of_path()          .join(TRACK_FILE);
+        let real_name = of_path().join(TRACK_FILE);
         std::fs::create_dir_all(of_path())
             .map_err(|_| "couldn't create installation dir")?;
         let temp = File::create(&temp_name)
@@ -65,23 +68,23 @@ impl Installation {
     /// run game
     /// very little checking, just goes for it
     pub fn launch(&self) {
-        if self.ssdk_path.as_os_str().is_empty(){
+        if self.ssdk_path.as_os_str().is_empty() {
             eprintln!("installation: cowardly not launching");
             return;
         }
 
         let mut args = self.get_launch_args();
         let ssdk_cmd = self.ssdk_path.join(ssdk_exe()).into_os_string();
-        let cmd = if let Some(idx) = args.iter().position(|arg| arg==OsStr::new("%command%")){
+        let cmd = if let Some(idx) = args.iter().position(|arg| arg == OsStr::new("%command%")) {
             args[idx] = ssdk_cmd;
             args.remove(0)
-        }else{
+        } else {
             ssdk_cmd
         };
 
         let mut cmd = Command::new(&cmd);
         cmd.current_dir(&self.ssdk_path);
-        if cfg!(target_os="linux"){
+        if cfg!(target_os="linux") {
             cmd.env("LD_LIBRARY_PATH", self.ssdk_path.join("bin"));
         }
         cmd.args(args);
@@ -96,36 +99,36 @@ impl Installation {
         let mut arg = String::new();
         let mut escaped = false;
         let mut quote = ' ';// ' or " for yes
-        for c in self.launch_options.chars(){
-            if quote=='\'' {
-                if c=='\'' {
+        for c in self.launch_options.chars() {
+            if quote == '\'' {
+                if c == '\'' {
                     quote = ' ';
-                }else{
+                } else {
                     arg.push(c);
                 }
-            }else if escaped {
+            } else if escaped {
                 escaped = false;
                 arg.push(c);
-            }else if c=='\\' {
+            } else if c == '\\' {
                 escaped = true;
-            }else if quote=='\"' {
-                if c=='\"'{
+            } else if quote == '\"' {
+                if c == '\"' {
                     quote = ' ';
-                }else{
+                } else {
                     arg.push(c);
                 }
-            }else if c=='\"'{
+            } else if c == '\"' {
                 quote = '\"';
-            }else if c.is_whitespace() {
-                if !arg.is_empty(){
+            } else if c.is_whitespace() {
+                if !arg.is_empty() {
                     args.push(arg.to_string().into());
                 }
                 arg.clear();
-            }else{
+            } else {
                 arg.push(c);
             }
         }
-        if !arg.is_empty(){
+        if !arg.is_empty() {
             args.push(arg.into());
         }
 
@@ -135,7 +138,7 @@ impl Installation {
         dbg!(args)
     }
 
-    pub fn are_paths_good(&self) -> bool{
+    pub fn are_paths_good(&self) -> bool {
         !self.ssdk_path.as_os_str().is_empty()
     }
 }
@@ -143,15 +146,52 @@ impl Installation {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct InstalledBin {
     pub version: u32,
-    pub files: Vec<PathBuf>,
-    //TODO: integrity checking belongs here
+    pub files: Vec<InstalledFile>
 }
 
-impl InstalledBin{
+impl InstalledBin {
     pub fn new() -> Self {
-        InstalledBin{
+        InstalledBin {
             version: 0,
-            files: vec![],
+            files: vec![]
         }
+    }
+
+    pub fn is_not_modified(&self) -> bool {
+        self.files.iter().all(|file| file.check().unwrap_or(false))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct InstalledFile {
+    pub fullpath: PathBuf,
+    checksum: u64,
+}
+
+impl InstalledFile {
+    pub fn new(fullpath: PathBuf) -> Result<Self, io::Error> {
+        let checksum = Self::hash_file(&fullpath)?;
+
+        Ok(InstalledFile {
+            fullpath,
+            checksum
+        })
+    }
+
+    pub fn check(&self) -> Result<bool, io::Error> {
+        Ok(self.checksum == Self::hash_file(&self.fullpath)?)
+    }
+
+    fn hash_file(path: &PathBuf) -> Result<u64, io::Error> {
+        let mut hasher = DefaultHasher::new();
+
+        let mut file = File::open(path.as_path())?;
+        let mut buf = [0; 64];
+
+        while let Ok(n) = file.read(&mut buf) {
+            Hash::hash(&buf[0..n], &mut hasher);
+        }
+
+        Ok(hasher.finish())
     }
 }
