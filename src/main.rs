@@ -38,7 +38,7 @@ impl ErrorDisplayer{
             text.as_ref()
         );
         md.run();
-        md.destroy();
+        // md.destroy();
     }
 
     fn display_wrangler_err(&self, e: WranglerError){
@@ -101,9 +101,7 @@ impl Model {
     }
 
     fn save_install(&self){
-        if self.home_screen.get_current_page()==Some(1) {
-            INST.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
-        }
+        INST.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
     }
 
     /// play game, no update
@@ -183,7 +181,7 @@ impl Model {
     /// Decides what action should happen
     /// when the main button is pressed
     fn action_main_button(&self){
-        let state = if self.config_needs_attention.get() {
+        if self.config_needs_attention.get() {
             self.action_config()
         }else { match self.game_needs_update.get() {
             Ok(true) => self.action_update(), // UPDATE
@@ -206,7 +204,7 @@ impl Model {
 
     fn build_ui(application: &gtk::Application) {
         // Build our UI from ze XML
-        let builder = Builder::new_from_string(load_glade().as_ref());
+        let builder = Builder::from_string(load_glade().as_ref());
 
         // Apply the CSS to ze XML
         let provider = CssProvider::new();
@@ -319,7 +317,7 @@ impl Model {
                     &credits
                 );
                 md.run();
-                md.destroy();
+                // md.destroy();
                 Inhibit(true)
             });
         }
@@ -327,8 +325,10 @@ impl Model {
         // Save the config when the config tab is navigated away from
         {
             let model = model.clone();
-            home_screen.connect_switch_page(move |_home_screen, _page, _page_num| {
-                model.save_install();
+            home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
+                if home_screen.get_current_page()==Some(1) {
+                    model.save_install();
+                }
             });
         }
         // or when the close button is pressed, but that's handled elsewhere.
@@ -337,7 +337,7 @@ impl Model {
             let model = model.clone();
             ssdk_path_box.set_text(&INST.load().ssdk_path.to_string_lossy());
             ssdk_path_box.connect_focus_out_event(move |widget, _event| {
-                let t = widget.get_text().unwrap();
+                let t = widget.get_text();
                 let p = Path::new(t.as_str());
 
                 let mut inst = INST.load().deref().deref().clone();
@@ -353,7 +353,7 @@ impl Model {
             let model = model.clone();
             tf2_path_box.set_text(&INST.load().tf2_path.to_string_lossy());
             tf2_path_box.connect_focus_out_event(move |widget, _event| {
-                let t = widget.get_text().unwrap();
+                let t = widget.get_text();
                 let p = Path::new(t.as_str());
 
                 let mut inst = INST.load().deref().deref().clone();
@@ -365,7 +365,28 @@ impl Model {
             });
         }
 
+        {
+            let launch_opts: Entry = builder.get_object("launch_opts").unwrap();
+            launch_opts.set_text(&INST.load().launch_options);
+            launch_opts.connect_focus_out_event(move |widget, _event| {
+                let t = widget.get_text().as_str().to_owned();
+                let mut inst = INST.load().deref().deref().clone();
+                inst.launch_options = t;
+                INST.store(Arc::new(inst));
+                Inhibit(false)
+            });
+        }
+
         Self::connect_progress(&builder, model.clone());
+
+        // space bar for play
+        window.connect_key_press_event( move |_, e| {
+            if e.get_keyval() == gdk::keys::constants::space
+            && model.home_screen.get_current_page()==Some(0) {
+                model.action_main_button();
+            }
+            Inhibit(false)
+        });
 
         window.show_all();
     }
@@ -374,13 +395,13 @@ impl Model {
         // Play button does things
         let play_button: EventBox = builder.get_object("play_button").unwrap();
         
-        let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+        /*let home_screen: Notebook = builder.get_object("home_screen").unwrap();
         let progress_screen: Box = builder.get_object("progress_screen").unwrap();
         let stack: Stack = builder.get_object("stack").unwrap();
-        let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
+        let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();*/
 
-        //TODO: Space bar for play?
         {
+            let model = model.clone();
             play_button.connect_button_press_event( move |_,_| {
                 model.action_main_button();
                 Inhibit(false)

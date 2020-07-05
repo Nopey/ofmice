@@ -38,12 +38,18 @@ impl Installation {
         if self.ssdk_path.as_os_str().is_empty() {
             self.ssdk_path = r;
         }
+        if cfg!(target_os="linux") && self.launch_options.is_empty() {
+            self.launch_options = "-steam -secure".to_owned();
+        }
         Ok(())
     }
 
     #[cfg(not(feature = "steam_wrangler"))]
     pub fn init_ssdk( &mut self ) -> Result<(), WranglerError>{
         println!("No steam wrangler");
+        if cfg!(target_os="linux") && self.launch_options.is_empty() {
+            self.launch_options = "-steam -secure".to_owned();
+        }
         Ok(())
     }
     /// Saves the installation to the file.
