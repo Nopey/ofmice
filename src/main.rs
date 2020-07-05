@@ -1,5 +1,4 @@
-//! main is the vgtk frontend of the code. Perhaps it should be moved into its own interface module?
-// #![feature(async_closure)]
+//! main is the gtk frontend of the code. Perhaps it should be moved into its own interface module?
 mod res;
 
 use ofmice::*;

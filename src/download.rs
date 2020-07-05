@@ -56,15 +56,18 @@ pub struct Bindex {
 fn make_client() -> Client{
     // Install our self signed certificate
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
-    let cert = Certificate::from_pem(include_bytes!("of-ca.cert")).unwrap();
+    // let cert = Certificate::from_pem(include_bytes!("of-ca.cert")).unwrap();
+    // baltimore root cert, useful for cloudflare
+    let cert = Certificate::from_pem(include_bytes!("baltimore-root.cert")).unwrap();
     let client = Client::builder()
         .timeout(Duration::new(8,0)) // 8 second timeout
-        .add_root_certificate(cert).build().unwrap();
+        .add_root_certificate(cert)
+        .build().unwrap();
     client
 }
 
 // const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
-const BASEURL: &'static str = "https://69.195.157.245:8443/of/mice/";
+const BASEURL: &'static str = "https://mice.openfortress.fun/of/mice/";
 
 pub async fn self_update() -> Result<(), DownloadError> {
     let client = make_client();

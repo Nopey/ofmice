@@ -14,6 +14,7 @@ TODO: Other miscellanious system dependencies
 * run game
 * Launch options
 * Progress bar (module, with push/pop obj that gets passed around)
+* make button look like update button when updates needed
 
 ## To-Do
 ### Backend things
@@ -28,11 +29,11 @@ TODO: Other miscellanious system dependencies
 ### UI things
 * disable launch button if it outlook is bad
 * investigate russian translation
-* make button look like update button when updates needed
-* add a close button and disable decorations with https://developer.gnome.org/gtk3/stable/GtkWindow.html#gtk-window-set-decorated
+* Download progress bar
 
 ### distribution things
-* Launcher self update detection
+* Launcher update detection (go into offline mode if user says they dont care)
 * Double check the licenses of the crates and steamworks.
 * Double check builds are for i686 rather than x64
 * (Cross?) Build Windows binaries
+* Launcher self update, replacement
