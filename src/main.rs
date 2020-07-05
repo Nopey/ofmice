@@ -56,6 +56,12 @@ lazy_static!{
     static ref INST: ArcSwap<Installation> = ArcSwap::from(Arc::new(Installation::try_load().unwrap_or_default()));
 }
 
+#[derive(Clone, Copy)]
+enum NeedsUpdateErr {
+    Wait,
+    Offline,
+}
+
 struct Model {
     // any other fields you add here won't be saved between runs of the launcher
     // hold some news-related info here?
@@ -65,11 +71,41 @@ struct Model {
     //TODO: Maybe migrate everything off of the errordisplayer type onto Model?
     ed: ErrorDisplayer,
     /// What is the main button displaying?
-    main_button_state: Cell<usize>, // TODO: make this an enum.
+    config_needs_attention: Cell<bool>,
+    game_needs_update: Cell<Result<bool, NeedsUpdateErr>>,
     play_button_image: Image,
+    /// The switchy tabby thing
+    home_screen: Notebook,
+    /// config menu source sdk 2013 path box
+    ssdk_path_box: Entry,
+    /// config menu team fortress 2 path box
+    tf2_path_box: Entry,
 }
 
 impl Model {
+    fn config_updated(&self, inst: &Installation) {
+        if inst.is_tf2_path_good() {
+            self.tf2_path_box.set_widget_name("valid-path");
+        } else {
+            self.tf2_path_box.set_widget_name("invalid-path");
+        }
+
+        if inst.is_ssdk_path_good() {
+            self.ssdk_path_box.set_widget_name("valid-path");
+        } else {
+            self.ssdk_path_box.set_widget_name("invalid-path");
+        }
+
+        self.config_needs_attention.set(!inst.can_launch());
+        self.set_main_button_graphic();
+    }
+
+    fn save_install(&self){
+        if self.home_screen.get_current_page()==Some(1) {
+            INST.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
+        }
+    }
+
     /// play game, no update
     fn action_play(&self){
         // is it as simple as:
@@ -139,25 +175,32 @@ impl Model {
         todo!()
     }
     /// go to config tab
-    /// because the SSDK path is invalid.
+    /// because a configured path is invalid.
     fn action_config(&self){
-        todo!()
+        // XXX: HACKHACK: Hardcoding tab 1 is config
+        self.home_screen.set_current_page(Some(1)); 
     }
     /// Decides what action should happen
     /// when the main button is pressed
     fn action_main_button(&self){
-        match self.main_button_state.get(){
-            0 => self.action_update(),
-            1 => self.action_play(),
-            2 => (), // offline button.. should it play?
-            3 => self.action_config(),
-            4 => (), // wait button. impatient user, eh?
-            // the _ will become unnecessary once an enum is used for the state
-            e => panic!("invalid main_button_state {}", e),
-        }
+        let state = if self.config_needs_attention.get() {
+            self.action_config()
+        }else { match self.game_needs_update.get() {
+            Ok(true) => self.action_update(), // UPDATE
+            Ok(false) => self.action_play(), // PLAY
+            Err(NeedsUpdateErr::Offline) => (), // TODO: Should OFFLINE run the game anyways?
+            Err(NeedsUpdateErr::Wait) => (),
+        }};
     }
-    fn set_main_button_state(&self, state: usize){
-        self.main_button_state.set(state);
+    fn set_main_button_graphic(&self){
+        let state = if self.config_needs_attention.get() {
+            3 // CONFIG
+        }else { match self.game_needs_update.get() {
+            Ok(true) => 0, // UPDATE
+            Ok(false) => 1, // PLAY
+            Err(NeedsUpdateErr::Offline) => 2,
+            Err(NeedsUpdateErr::Wait) => 4,
+        }};
         self.play_button_image.set_from_pixbuf(Some(&self.button_pixbufs[state]));
     }
 
@@ -186,36 +229,43 @@ impl Model {
         // Check what the play button will do
         let play_button_image: Image = builder.get_object("play_button_image").unwrap();
 
+        let home_screen: Notebook = builder.get_object("home_screen").unwrap();
+
+        let ssdk_path_box: Entry = builder.get_object("ssdk_path").unwrap();
+        let tf2_path_box: Entry = builder.get_object("tf2_path").unwrap();
+
+
         // For the UI model
+        //TODO: update main button state as config is edited
         let model = Rc::new(Model{
             button_pixbufs,
             ed: ErrorDisplayer{window: window.clone()},
-            main_button_state: Cell::new(if INST.load().are_paths_good(){4}else{3}), // WAIT else CONFIG
-            play_button_image: play_button_image.clone()
+            config_needs_attention: Cell::new(!INST.load().can_launch()),
+            game_needs_update: Cell::new(Err(NeedsUpdateErr::Wait)),
+            play_button_image: play_button_image.clone(),
+            home_screen: home_screen.clone(),
+            ssdk_path_box: ssdk_path_box.clone(),
+            tf2_path_box: tf2_path_box.clone(),
         });
 
         // steam_wrangler if needed
         let mut inst = INST.load().deref().deref().clone();
+        model.config_updated(&inst);
         inst.init_ssdk().unwrap_or_else(|e| model.ed.display_wrangler_err(e));
         INST.store(Arc::new(inst));
 
         // initialize state
-        play_button_image.set_from_pixbuf(Some(&model.button_pixbufs[model.main_button_state.get()]));
-
-        if model.main_button_state.get()==4 { //WAIT
+        {
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
 
             //TODO: occasionally check for updates if idle?
             tokio::spawn( ( move || { async move {
-                tx.send(match download::is_update_available(&INST.load()).await {
-                    Ok(true) => 0,
-                    Ok(false) => 1,
-                    Err(_) => 2,
-                }).unwrap();
+                //TODO: maybe display this error if we screw up
+                tx.send(download::is_update_available(&INST.load()).await.map_err(|_| NeedsUpdateErr::Offline) ).unwrap();
             }})());
 
             let model = model.clone();
-            rx.attach(None, move |value| {model.set_main_button_state(value); Continue(false)});
+            rx.attach(None, move |value| { model.game_needs_update.set(value); model.set_main_button_graphic(); Continue(false)});
         }
 
         // transparent hooks
@@ -240,7 +290,9 @@ impl Model {
         let close_eventbox: EventBox = builder.get_object("close_eventbox").unwrap();
         {
             let window = window.clone();
+            let model = model.clone();
             close_eventbox.connect_button_press_event(move |_,_|{
+                model.save_install();
                 window.close();
                 Inhibit(false)
             });
@@ -273,31 +325,45 @@ impl Model {
         }
 
         // Save the config when the config tab is navigated away from
-        let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-        home_screen.connect_switch_page(move |home_screen, _page, _page_num| {
-            if home_screen.get_current_page()==Some(1) {
-                INST.load().save_changes().expect("TODO: FIXME: THIS SHOULD DISPLAY AN ERR TO USER");
-            }
-        });
-        
+        {
+            let model = model.clone();
+            home_screen.connect_switch_page(move |_home_screen, _page, _page_num| {
+                model.save_install();
+            });
+        }
+        // or when the close button is pressed, but that's handled elsewhere.
 
-        let ssdk_path: Entry = builder.get_object("ssdk_path").unwrap();
-        ssdk_path.set_text(&INST.load().ssdk_path.to_string_lossy());
-        ssdk_path.connect_focus_out_event(move |widget, _event| {
-            let t = widget.get_text().unwrap();
-            let p = Path::new(t.as_str());
+        {
+            let model = model.clone();
+            ssdk_path_box.set_text(&INST.load().ssdk_path.to_string_lossy());
+            ssdk_path_box.connect_focus_out_event(move |widget, _event| {
+                let t = widget.get_text().unwrap();
+                let p = Path::new(t.as_str());
 
-            if p.join(ssdk_exe()).exists() {
-                widget.set_widget_name("valid-path");
                 let mut inst = INST.load().deref().deref().clone();
                 inst.ssdk_path = p.to_path_buf();
+                model.config_updated(&inst);
                 INST.store(Arc::new(inst));
-            } else {
-                widget.set_widget_name("invalid-path");
-            }
-            // println!("Out of focus");
-            Inhibit(false)
-        });
+                // println!("Out of focus");
+                Inhibit(false)
+            });
+        }
+
+        {
+            let model = model.clone();
+            tf2_path_box.set_text(&INST.load().tf2_path.to_string_lossy());
+            tf2_path_box.connect_focus_out_event(move |widget, _event| {
+                let t = widget.get_text().unwrap();
+                let p = Path::new(t.as_str());
+
+                let mut inst = INST.load().deref().deref().clone();
+                inst.tf2_path = p.to_path_buf();
+                model.config_updated(&inst);
+                INST.store(Arc::new(inst));
+                // println!("Out of focus");
+                Inhibit(false)
+            });
+        }
 
         Self::connect_progress(&builder, model.clone());
 
@@ -312,8 +378,6 @@ impl Model {
         let progress_screen: Box = builder.get_object("progress_screen").unwrap();
         let stack: Stack = builder.get_object("stack").unwrap();
         let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
-        
-        
 
         //TODO: Space bar for play?
         {

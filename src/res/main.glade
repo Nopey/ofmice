@@ -102,7 +102,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkEntry" id="tf_path">
+                      <object class="GtkEntry" id="tf2_path">
                         <property name="hexpand">true</property>
                       </object>
                       <packing>

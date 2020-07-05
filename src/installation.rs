@@ -62,11 +62,15 @@ impl Installation {
             .map_err(|_| "couldn't overwrite previous installation record")?;
         Ok(())
     }
+    pub fn can_launch(&self) -> bool {
+        self.is_ssdk_path_good()
+        && self.is_tf2_path_good()
+    }
     /// run game
     /// very little checking, just goes for it
     pub fn launch(&self) {
-        if self.ssdk_path.as_os_str().is_empty(){
-            eprintln!("installation: cowardly not launching");
+        if !self.can_launch() {
+            eprintln!("installation: cowardly not launching. NOTE: Getting here would be a bug.");
             return;
         }
 
@@ -135,8 +139,12 @@ impl Installation {
         dbg!(args)
     }
 
-    pub fn are_paths_good(&self) -> bool{
-        !self.ssdk_path.as_os_str().is_empty()
+    pub fn is_ssdk_path_good(&self) -> bool {
+        self.ssdk_path.join(ssdk_exe()).exists()
+    }
+
+    pub fn is_tf2_path_good(&self) -> bool {
+        self.tf2_path.join("tf/tf2_misc_dir.vpk").exists()
     }
 }
 

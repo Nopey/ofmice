@@ -4,7 +4,8 @@ use std::iter::{ExactSizeIterator, Zip};
 
 #[derive(Clone)]
 pub struct Progress<'a> {
-    //TODO: do we need SyncSender? what's even the difference.. they both implement Sync! ;)
+    // NOTE: do we need SyncSender? what's even the difference.. they both implement Sync! ;)
+    // NOTE: Alternative implementation would use an ArcSwap. doesn't matter that much tho
     tx: glib::Sender<Option<(f64, String)>>,
     parent: Option<(&'a Progress<'a>, &'a str)>,
     start: f64,

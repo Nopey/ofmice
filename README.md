@@ -30,6 +30,7 @@ TODO: Other miscellanious system dependencies
 * disable launch button if it outlook is bad
 * investigate russian translation
 * Download progress bar
+* file browser for config panel, see https://developer.gnome.org/gtk3/stable/GtkFileChooserDialog.html
 
 ### distribution things
 * Launcher update detection (go into offline mode if user says they dont care)
