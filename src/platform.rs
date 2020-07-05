@@ -30,14 +30,16 @@ pub fn of_path() -> PathBuf {
 }
 
 //TODO: I'm uncomfortable with these bins functions, Too bad!
+//NOTE: the client and server buckets are just assets, with no overlap.
+// Client and server binary buckets both contain server.so, so only install the client.
 #[cfg(target_os = "linux")]
 pub fn bins() -> &'static [&'static str] {
-    return &["client_linux", "server_linux", "client", "server"];
+    return &["client_linux", "client", "server"];
 }
 
 #[cfg(target_os = "windows")]
 pub fn bins() -> &'static [&'static str] {
-    return &["client_windows", "server_windows", "client", "server"];
+    return &["client_windows", "client", "server"];
 }
 
 #[cfg(target_os = "linux")]
