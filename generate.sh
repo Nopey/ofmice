@@ -9,6 +9,7 @@ cd "$new"
 DDELTA=ddelta
 OFPATCHTOOL="$root/ofpatchtool"
 WWW=/var/www/html/of/mice
+# WWW=/tmp
 
 # important: lets the `find|while` loops modify our global variables
 shopt -s lastpipe
@@ -39,7 +40,8 @@ bins=(client server client_linux client_windows server_linux server_windows)
 # NOTE: The trailing slashes aren't necessary, but they do make it clear what is a file.
 client=(sound/ classes/ expressions/ media/ particles/ resource cfg custom/readme.txt download/readme.txt dxsupport_override.cfg lights.rad maplist.txt nospf.txt scripts steam.inf tfhallway.raw thirdpartycredits.txt)
 
-server=(models/ scenes/ scripts/ README.md credits.txt gameinfo.txt gamemounting.txt maps whitelist.cfg)
+#NOTE: Currently shipping textures to dedicated servers. Too bad! See below note on a better way.
+server=(models/ scenes/ scripts/ materials/ README.md credits.txt gameinfo.txt gamemounting.txt maps whitelist.cfg)
 
 # I've decided to put the server.so in both client and server buckets,
 # in case we ever start building server binaries that don't require symlinking _srv in ssdk2013.
@@ -47,6 +49,18 @@ client_linux=(bin/client.so bin/libdiscord-rpc.so bin/libfmod.so.11 bin/GameUI.s
 server_linux=(bin/server.so)
 client_windows=(bin/client.dll bin/GameUI.dll bin/HLLib.dll bin/discord-rpc.dll bin/fmod.dll bin/game_shader_dx9.dll bin/server.dll)
 server_windows=(bin/server.dll)
+
+# server needs just the materials, not the textures.
+# so I could do something like I did before.
+# remember to handle deleting textures!
+#find materials -type f -iname '*.vtf' -print0 |
+#while IFS= read -r -d $'\0' file; do
+#    add to client
+#done
+#find materials -type f -iname '*.vmt' -print0 |
+#while IFS= read -r -d $'\0' file; do
+#    add to server
+#done
 
 for bin in "${bins[@]}"; do
     # Loose Files
@@ -72,20 +86,25 @@ for bin in "${bins[@]}"; do
             # File
             handle_new_file
         elif [ -d "$new/$file" ]; then
+            dir="$file"
             # Directory
             # dirs can have deletions
+            cd "$new"
             find "$dir" -type f -print0 |
             while IFS= read -r -d $'\0' file; do
                 handle_new_file
             done
-            find "$old/$dir" -type f -print0 |
-            while IFS= read -r -d $'\0' file; do
-                if [ ! -f "$new/$file" ]; then
-                    # File deleted
-                    mkdir -p `dirname "$out/$file"`
-                    md5sum "$old/$file" > "$out/$file.del"
-                fi
-            done
+            if [ -d "$old/$dir" ]; then
+                cd "$old"
+                find "$dir" -type f -print0 |
+                while IFS= read -r -d $'\0' file; do
+                    if [ ! -f "$new/$file" ]; then
+                        # File deleted
+                        mkdir -p `dirname "$out/$file"`
+                        md5sum "$old/$file" > "$out/$file.del"
+                    fi
+                done
+            fi
         else
             echo "WARNING: $file ISN'T A FILE NOR A DIRECTORY"
         fi
@@ -114,5 +133,4 @@ rm -rf "$old"
 
 mkdir "$old"
 # avoid .svn dir with /*
-cp -rf "$new/*" "$old/"
-rm "$old"/*.txt.bak
+cp -rf "$new/"* "$old/"
