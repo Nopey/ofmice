@@ -25,6 +25,27 @@ button#update {
     font-size: 20px;
 }
 
+/* config */
+#config label {
+    color: #fcfcfc;
+    text-shadow: 1px 1px 1px rgba(1.0,1.0,1.0, 0.5);
+}
+label#config_title {
+    color: #fcfcfc;
+    text-shadow: 2px 2px 2px rgba(1.0,1.0,1.0, 0.95);
+    font-size: 21px;
+    font-weight: bold;
+}
+entry {
+    color: #fcfcfc;
+    background: alpha(#324, 0.55);
+}
 #invalid-path {
-    background: red;
+    background: alpha(red, 0.65);
+}
+/* end config */
+
+progressbar {
+    color: #333;
+    text-shadow: 1px 1px 1px rgba(1.0,1.0,1.0, 0.5);
 }

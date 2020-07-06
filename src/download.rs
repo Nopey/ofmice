@@ -15,7 +15,7 @@ use bytes::Bytes;
 
 /// A user-friendly **actionable** error
 #[derive(Debug, Clone, Copy)]
-pub enum DownloadError{
+pub enum DownloadError {
     ConnectionFailure,
     WriteErr,
     BadResponse, // we effed up on the serverside :c
@@ -53,7 +53,7 @@ pub struct Bindex {
     pub patch_tail: u32,
 }
 
-fn make_client() -> Client{
+fn make_client() -> Client {
     // Install our self signed certificate
     // easier than ensurnig letsencrypts is trusted by reqwest, and hasn't expired.
     // let cert = Certificate::from_pem(include_bytes!("of-ca.cert")).unwrap();
@@ -73,7 +73,7 @@ pub async fn self_update() -> Result<(), DownloadError> {
     let client = make_client();
     let new_version = client.get(&format!("{}{}", BASEURL, "launcher_version.txt")).send()
         .await.map_err(bad_response)?.text().await.map_err(bad_response)?;
-    if new_version!=env!("CARGO_PKG_VERSION"){
+    if new_version != env!("CARGO_PKG_VERSION") {
         // ooga booga we updating boys
         todo!()
     }
@@ -82,7 +82,6 @@ pub async fn self_update() -> Result<(), DownloadError> {
 
 pub async fn is_update_available(installation: &Installation) -> Result<bool, DownloadError> {
     //TODO: replace some of these unwraps with BadResponse masks
-    //TODO: make a function that eprintln!'s the error before returning BadResponse.
     // (maybe report the error, too)
 
     let client = make_client();
@@ -97,14 +96,14 @@ pub async fn is_update_available(installation: &Installation) -> Result<bool, Do
 
     for &bin in bins {
         let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
-        let binst = match installation.bins.get(bin){
+        let binst = match installation.bins.get(bin) {
             Some(b) => b,
-            None => {return Ok(true);} // update available
+            None => { return Ok(true); } // update available
         };
         let oldversion = binst.version;
         let delta_dist = bindex.version - oldversion;
-        //TODO: Signature checking
-        if delta_dist!=0 {
+
+        if delta_dist != 0 && binst.is_not_modified() {
             // up-to-date
             return Ok(true);
         }
@@ -116,10 +115,9 @@ pub async fn is_update_available(installation: &Installation) -> Result<bool, Do
 //TODO: Abstract the file download logic (for patches and full-bins) into its own function
 //TODO: Check for the existance of .tar.xz files in the installation path with matching hashsums.
 /// Downloads the latest update
-pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result<(), DownloadError>{
+pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result<(), DownloadError> {
     use DownloadError::*;
     //TODO: replace some of these unwraps with BadResponse masks
-    //TODO: make a function that eprintln!'s the error before returning BadResponse.
     // (maybe report the error, too)
     progress.send(0f64, "Downloading index");
 
@@ -137,15 +135,18 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
         println!("[download] considering bin {}", bin);
         progress.send(0f64, &format!("{}: Checking Signature", bin));
         let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
-        let mut binst = &mut inst.bins.entry(bin.to_owned()).or_insert_with(|| {println!("clearing a bin");InstalledBin::new()});
+        let mut binst = &mut inst.bins.entry(bin.to_owned()).or_insert_with(|| {
+            println!("clearing a bin");
+            InstalledBin::new()
+        });
         let oldversion = binst.version;
         println!("installed ver:\t{}\nindex ver:\t{}", oldversion, bindex.version);
         let delta_dist = bindex.version - oldversion;
-        //TODO: Signature checking
-        if delta_dist==0 {
+
+        if delta_dist == 0 {
             // up-to-date
             println!("up-to-date");
-        }else if oldversion!=0 && delta_dist <= bindex.patch_tail /* && signatures match */{
+        } else if oldversion != 0 && delta_dist <= bindex.patch_tail && binst.is_not_modified() {
             println!("patchable");
 
             // mark uninstalled (if we're interrupted or fail, don't attempt to patch)
@@ -169,8 +170,8 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
                     let path = f.path().unwrap();
                     match path.extension().and_then(OsStr::to_str) {
                         Some("del") => std::fs::remove_file(
-                                of_path().join(path.parent().unwrap()).join(path.file_stem().unwrap())
-                            ).map_err(|_| WriteErr)?,
+                            of_path().join(path.parent().unwrap()).join(path.file_stem().unwrap())
+                        ).map_err(|_| WriteErr)?,
                         Some("dif") => {// okay, stay calm. we know how to do this.
                             // get real filename
                             let real_filename = of_path()
@@ -181,9 +182,9 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
 
                             // apply the dif
                             // chunked alleviates the 2.14GB restriction of ddelta
-                            let mut outfile = File::create( &temp_filename ).map_err(|_| WriteErr)?;
+                            let mut outfile = File::create(&temp_filename).map_err(|_| WriteErr)?;
                             //NOTE: once we check checksums, realfile won't fail because of missing input.
-                            let mut realfile = File::open( &real_filename ).map_err(|_| WriteErr)?;
+                            let mut realfile = File::open(&real_filename).map_err(|_| WriteErr)?;
                             ddelta::apply_chunked(&mut realfile, &mut outfile, &mut f)
                                 .map_err(|_| BadResponse)?;
                             drop(realfile);
@@ -191,7 +192,7 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
                             std::fs::rename(&temp_filename, &real_filename).map_err(|_| WriteErr)?;
 
                             //TODO: Signature recording
-                        },
+                        }
                         _ => {
                             let outpath = of_path().join(f.path().map_err(|_| BadResponse)?);
                             std::fs::create_dir_all(outpath.parent().unwrap()).map_err(|_| BadResponse)?;
@@ -203,18 +204,18 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
                 }
             }
             todo!()
-        }else{
+        } else {
             println!("full-download");
             // mark uninstalled
             binst.version = 0;
             let files = std::mem::take(&mut binst.files);
             drop(binst);
             inst.save_changes().map_err(|_| WriteErr)?;
-            
+
             // Delete every previously installed file
             for file in files {
                 // if it fails, we don't really care.
-                std::fs::remove_file(file).ok();
+                std::fs::remove_file(file.fullpath).ok();
             }
 
             // I split the iter here so that I can
@@ -223,9 +224,7 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
             let mut piter = progress.divide(2, &message);
             let progress = piter.next().unwrap();
             //TODO: Download progress within the file for patches
-            //TODO: Scale progress for whole thing
-            //TODO: Display how much data we've got
-            //TODO: Figure out why nothing is showing
+            //TODO: Scale progress for whole thing by filesize
             progress.send(0f64, "Downloading");
             // Must download from scratch
             let url = format!("{}{}.tar.xz", BASEURL, bin);
@@ -258,9 +257,8 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
                 let outpath = of_path().join(f.path().map_err(|_| BadResponse)?);
                 std::fs::create_dir_all(outpath.parent().unwrap()).map_err(|_| BadResponse)?;
                 f.unpack_in(of_path()).map_err(|_| WriteErr)?;
-                inst.bins.get_mut(bin).unwrap().files.push(outpath);
-
-                //TODO: Signature recording
+                let file = InstalledFile::new(outpath).map_err(|_| WriteErr)?;
+                inst.bins.get_mut(bin).unwrap().files.push(file);
             }
 
             inst.bins.get_mut(bin).unwrap().version = bindex.version;

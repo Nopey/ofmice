@@ -37,7 +37,8 @@ impl ErrorDisplayer{
             text.as_ref()
         );
         md.run();
-        // md.destroy();
+        //TODO: look into why MessageDialog::destroy is unsafe and check that there's no chance of it happening.
+        unsafe{ md.destroy() };
     }
 
     fn display_wrangler_err(&self, e: WranglerError){
@@ -83,7 +84,6 @@ struct Model {
     progress_screen: Box,
     stack: Stack,
     progress_bar: ProgressBar,
-    progress_caption: Label,
     window: Window,
 }
 
@@ -154,7 +154,7 @@ impl Model {
         rx.attach(None, move |value| match value {
             Some((value, message)) => {
                 model.progress_bar.set_fraction(value);
-                model.progress_caption.set_text(&message);
+                model.progress_bar.set_text(Some(&message));
                 Continue(true)
             }
             None => {
@@ -245,13 +245,14 @@ impl Model {
             stack,
             progress_screen,
             window: window.clone(),
-            progress_caption: builder.get_object("progress_caption").unwrap(),
         });
 
         // steam_wrangler if needed
         let mut inst = INST.load().deref().deref().clone();
+        if !inst.has_been_inited {
+            inst.init_ssdk().unwrap_or_else(|e| model.ed.display_wrangler_err(e));
+        }
         model.config_updated(&inst);
-        inst.init_ssdk().unwrap_or_else(|e| model.ed.display_wrangler_err(e));
         INST.store(Arc::new(inst));
 
         // initialize state
@@ -319,7 +320,7 @@ impl Model {
                     &credits
                 );
                 md.run();
-                // md.destroy();
+                unsafe{ md.destroy() };
                 Inhibit(true)
             });
         }
