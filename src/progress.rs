@@ -27,6 +27,7 @@ impl<'a> Progress<'a> {
         }
     }
 
+    /// Note: f is the fraction of 1 that is completion.
     pub fn send(&self, f: f64, message: &str) {
         self.tx.send(Some((
             self.start+f*self.len,

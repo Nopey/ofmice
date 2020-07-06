@@ -5,7 +5,6 @@ use ofmice::*;
 use res::*;
 use installation::Installation;
 use progress::Progress;
-use platform::ssdk_exe;
 use download::download;
 
 use std::sync::Arc;
@@ -73,6 +72,7 @@ struct Model {
     /// What is the main button displaying?
     config_needs_attention: Cell<bool>,
     game_needs_update: Cell<Result<bool, NeedsUpdateErr>>,
+    active: Rc<Cell<bool>>,
     play_button_image: Image,
     /// The switchy tabby thing
     home_screen: Notebook,
@@ -80,6 +80,10 @@ struct Model {
     ssdk_path_box: Entry,
     /// config menu team fortress 2 path box
     tf2_path_box: Entry,
+    progress_screen: Box,
+    stack: Stack,
+    progress_bar: ProgressBar,
+    window: Window,
 }
 
 impl Model {
@@ -106,13 +110,13 @@ impl Model {
 
     /// play game, no update
     fn action_play(&self){
-        // is it as simple as:
-        // INST.load().launch();
-        todo!()
+        //TODO: change main button from UPDATE to PLAY
+        INST.load().launch();
+        self.window.close();
     }
     /// update game, no play
     /// (change button to play once done, if no err)
-    fn action_update(&self){
+    fn action_update(self: &Rc<Self>){
         /*
 
         // new fields for Model:
@@ -120,15 +124,15 @@ impl Model {
             home_screen,
             progress_screen,
             progress_bar,
-            active: Rc<Cell<bool>, 
         
         // active: Rc::new(Cell::new(false)),
-
-        if active.get() {
-            return Inhibit(false);
+*/
+        let model = self.as_ref();
+        if model.active.get() {
+            return;
         }
 
-        active.set(true);
+        model.active.set(true);
 
         let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let (err_tx, err_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
@@ -144,7 +148,7 @@ impl Model {
         }
 
         {
-            let model = model.clone();
+            let model = self.clone();
             err_rx.attach(None, move |e: download::DownloadError| {
                 eprintln!("DownloadError: {:?}", e);
                 model.ed.display_error("TODO: actually handle DownloadErrors properly");
@@ -152,25 +156,23 @@ impl Model {
             });
         }
 
-        widgets.0.set_visible_child(&widgets.2);
+        model.stack.set_visible_child(&model.progress_screen);
 
-        let active = active.clone();
-        let widgets = widgets.clone();
+        let active = self.active.clone();
+        let model = self.clone();
         rx.attach(None, move |value| match value {
             Some((value, message)) => {
-                widgets.3.set_fraction(value);
-                widgets.3.set_text(Some(&message));
+                model.progress_bar.set_fraction(value);
+                model.progress_bar.set_text(Some(&message));
                 Continue(true)
             }
             None => {
-                let widgets = widgets.clone();
-                widgets.0.set_visible_child(&widgets.1);
+                let model = model.clone();
+                model.stack.set_visible_child(&model.home_screen);
                 active.set(false);
                 Continue(false)
             }
         });
-        */
-        todo!()
     }
     /// go to config tab
     /// because a configured path is invalid.
@@ -180,7 +182,7 @@ impl Model {
     }
     /// Decides what action should happen
     /// when the main button is pressed
-    fn action_main_button(&self){
+    fn action_main_button(self: &Rc<Self>){
         if self.config_needs_attention.get() {
             self.action_config()
         }else { match self.game_needs_update.get() {
@@ -232,6 +234,10 @@ impl Model {
         let ssdk_path_box: Entry = builder.get_object("ssdk_path").unwrap();
         let tf2_path_box: Entry = builder.get_object("tf2_path").unwrap();
 
+        let progress_screen: Box = builder.get_object("progress_screen").unwrap();
+        let stack: Stack = builder.get_object("stack").unwrap();
+        let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();
+
 
         // For the UI model
         //TODO: update main button state as config is edited
@@ -244,6 +250,11 @@ impl Model {
             home_screen: home_screen.clone(),
             ssdk_path_box: ssdk_path_box.clone(),
             tf2_path_box: tf2_path_box.clone(),
+            active: Rc::new(Cell::new(false)),
+            progress_bar,
+            stack,
+            progress_screen,
+            window: window.clone(),
         });
 
         // steam_wrangler if needed
@@ -394,11 +405,6 @@ impl Model {
     fn connect_progress(builder: &Builder, model: Rc<Model>){
         // Play button does things
         let play_button: EventBox = builder.get_object("play_button").unwrap();
-        
-        /*let home_screen: Notebook = builder.get_object("home_screen").unwrap();
-        let progress_screen: Box = builder.get_object("progress_screen").unwrap();
-        let stack: Stack = builder.get_object("stack").unwrap();
-        let progress_bar: ProgressBar = builder.get_object("progress_bar").unwrap();*/
 
         {
             let model = model.clone();

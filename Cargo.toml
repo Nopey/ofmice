@@ -34,7 +34,8 @@ strum_macros = "0.18.0"
 steamworks = { optional = true, git = "https://github.com/Thinkofname/steamworks-rs" }
 
 # download and installation use these
-reqwest = { version = "0.10.4", features = ["default-tls", "json", "stream"] }
+reqwest = { version = "0.10.6", features = ["default-tls", "json", "stream"] }
+bytes = "0.5.5"
 xz2 = "0.1.6"
 tar = "0.4.26"
 ddelta = "0.2.1"

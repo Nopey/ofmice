@@ -6,12 +6,12 @@ use crate::progress::Progress;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::time::Duration;
 
 use reqwest::{Client, Certificate};
 use serde_derive::{Serialize, Deserialize};
 use xz2::read;
 use tar::Archive;
+use bytes::Bytes;
 
 /// A user-friendly **actionable** error
 #[derive(Debug, Clone, Copy)]
@@ -60,12 +60,12 @@ fn make_client() -> Client{
     // baltimore root cert, useful for cloudflare
     let cert = Certificate::from_pem(include_bytes!("baltimore-root.cert")).unwrap();
     let client = Client::builder()
-        .timeout(Duration::new(8,0)) // 8 second timeout
         .add_root_certificate(cert)
         .build().unwrap();
     client
 }
 
+/// Must have a trailing slash.
 // const BASEURL: &'static str = "https://larsenml.ignorelist.com:8443/of/mice/";
 const BASEURL: &'static str = "https://mice.openfortress.fun/of/mice/";
 
@@ -113,6 +113,8 @@ pub async fn is_update_available(installation: &Installation) -> Result<bool, Do
 }
 
 //TODO: Stream the download through xz and tar?
+//TODO: Abstract the file download logic (for patches and full-bins) into its own function
+//TODO: Check for the existance of .tar.xz files in the installation path with matching hashsums.
 /// Downloads the latest update
 pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result<(), DownloadError>{
     use DownloadError::*;
@@ -156,8 +158,8 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
                 progress.send(0f64, "Downloading");
                 let url = format!("{}{}-patch{}.tar.xz", BASEURL, bin, patch_id);
                 let dottarxz = client.get(&url).send().await
-                    .map_err(|_| ConnectionFailure)?.bytes().await
-                    .map_err(|_| ConnectionFailure)?;
+                    .map_err(connection_failure)?.bytes().await
+                    .map_err(connection_failure)?;
                 let dottar = read::XzDecoder::new(dottarxz.as_ref());
 
                 progress.send(0.5f64, "Applying");
@@ -219,15 +221,30 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
             // split it again for the Download.
             let mut piter = progress.divide(2, "Clean Install");
             let progress = piter.next().unwrap();
-            //TODO: Download progress within the file
+            //TODO: Download progress within the file for patches
+            //TODO: Scale progress for whole thing
+            //TODO: Display how much data we've got
+            //TODO: Figure out why nothing is showing
             progress.send(0f64, "Downloading");
             // Must download from scratch
             let url = format!("{}{}.tar.xz", BASEURL, bin);
-            let dottarxz = client.get(&url).send().await
-                .map_err(|_| ConnectionFailure)?.bytes().await
-                .map_err(|_| ConnectionFailure)?;
+
+            let mut response = client.get(&url).send().await
+                .map_err(connection_failure)?;
+
+            let mut dottarxz = Vec::with_capacity(response.content_length().unwrap_or(1024*1024) as usize);
+            let total_len = response.content_length().unwrap_or(1024*1024*1024) as f64; //1G default
+            println!("dbg: total_len: {}", total_len);
+            let mut received = 0f64;
+
+            while let Some(item) = response.chunk().await.map_err(connection_failure)? {
+                received += item.len() as f64;
+                progress.send(received/total_len, "Downloading");
+                dottarxz.extend(item);
+            }
+            let dottarxz = Bytes::from(dottarxz);
             let dottar = read::XzDecoder::new(dottarxz.as_ref());
-            
+
             let progress = piter.next().unwrap();
             progress.send(0f64, "Installing");
             let mut ar = Archive::new(dottar);
