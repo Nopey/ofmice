@@ -83,6 +83,7 @@ struct Model {
     progress_screen: Box,
     stack: Stack,
     progress_bar: ProgressBar,
+    progress_caption: Label,
     window: Window,
 }
 
@@ -117,16 +118,6 @@ impl Model {
     /// update game, no play
     /// (change button to play once done, if no err)
     fn action_update(self: &Rc<Self>){
-        /*
-
-        // new fields for Model:
-            stack,
-            home_screen,
-            progress_screen,
-            progress_bar,
-        
-        // active: Rc::new(Cell::new(false)),
-*/
         let model = self.as_ref();
         if model.active.get() {
             return;
@@ -163,7 +154,7 @@ impl Model {
         rx.attach(None, move |value| match value {
             Some((value, message)) => {
                 model.progress_bar.set_fraction(value);
-                model.progress_bar.set_text(Some(&message));
+                model.progress_caption.set_text(&message);
                 Continue(true)
             }
             None => {
@@ -240,7 +231,6 @@ impl Model {
 
 
         // For the UI model
-        //TODO: update main button state as config is edited
         let model = Rc::new(Model{
             button_pixbufs,
             ed: ErrorDisplayer{window: window.clone()},
@@ -255,6 +245,7 @@ impl Model {
             stack,
             progress_screen,
             window: window.clone(),
+            progress_caption: builder.get_object("progress_caption").unwrap(),
         });
 
         // steam_wrangler if needed

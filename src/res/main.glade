@@ -165,7 +165,7 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkLabel">
+                  <object class="GtkLabel" id="progress_caption">
                     <property name="label" translatable="yes">Please wait..</property>
                   </object>
                 </child>

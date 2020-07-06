@@ -133,7 +133,7 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
     // Ideally, we'd have platform-specific binary ones, a barebones server assets one, and the textures&audio.
     let bins = platform::bins().iter();
 
-    for (progress, &bin) in progress.over(bins, "Checking Bin") {
+    for (progress, &bin) in progress.over(bins, "All") {
         println!("[download] considering bin {}", bin);
         progress.send(0f64, &format!("{}: Checking Signature", bin));
         let bindex = index.bindices.get(bin).expect("All valid bins must be in the index!");
@@ -154,7 +154,7 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
             drop(binst);
             inst.save_changes().map_err(|_| WriteErr)?;
 
-            for (progress, patch_id) in progress.over(oldversion..bindex.version, "Applying Patch") {
+            for (progress, patch_id) in progress.over(oldversion..bindex.version, &format!("{}: Applying Patch", bin)) {
                 progress.send(0f64, "Downloading");
                 let url = format!("{}{}-patch{}.tar.xz", BASEURL, bin, patch_id);
                 let dottarxz = client.get(&url).send().await
@@ -219,7 +219,8 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
 
             // I split the iter here so that I can
             // split it again for the Download.
-            let mut piter = progress.divide(2, "Clean Install");
+            let message = format!("{}: Clean Install", bin);
+            let mut piter = progress.divide(2, &message);
             let progress = piter.next().unwrap();
             //TODO: Download progress within the file for patches
             //TODO: Scale progress for whole thing
@@ -234,12 +235,16 @@ pub async fn download(inst: &mut Installation, progress: Progress<'_>) -> Result
 
             let mut dottarxz = Vec::with_capacity(response.content_length().unwrap_or(1024*1024) as usize);
             let total_len = response.content_length().unwrap_or(1024*1024*1024) as f64; //1G default
-            println!("dbg: total_len: {}", total_len);
             let mut received = 0f64;
 
             while let Some(item) = response.chunk().await.map_err(connection_failure)? {
                 received += item.len() as f64;
-                progress.send(received/total_len, "Downloading");
+                progress.send(received/total_len,&format!(
+                    "Downloading: {progress:.1} of {total:.1}MiB ({percent:.1}%)",
+                    progress =  received/(1024f64*1024f64),
+                    total    = total_len/(1024f64*1024f64),
+                    percent  =  received/total_len*100f64)
+                );
                 dottarxz.extend(item);
             }
             let dottarxz = Bytes::from(dottarxz);
